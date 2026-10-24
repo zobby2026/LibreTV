@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from 'react';
  *
  * 无 IntersectionObserver（老浏览器 / 测试环境）时直接视为可见，由调用方的缓存与队列限流兜底。
  */
-export function useInView<T extends HTMLElement>(enabled = true, delayMs = 500) {
+export function useInView<T extends HTMLElement>(enabled = true, delayMs = 500, rootMargin = '120px') {
   const ref = useRef<T | null>(null);
   const [inView, setInView] = useState(false);
 
@@ -34,7 +34,7 @@ export function useInView<T extends HTMLElement>(enabled = true, delayMs = 500) 
         observer.disconnect();
         timer = setTimeout(() => setInView(true), delayMs);
       },
-      { rootMargin: '120px' }
+      { rootMargin }
     );
     observer.observe(el);
 
@@ -42,7 +42,7 @@ export function useInView<T extends HTMLElement>(enabled = true, delayMs = 500) 
       if (timer !== null) clearTimeout(timer);
       observer.disconnect();
     };
-  }, [enabled, inView, delayMs]);
+  }, [enabled, inView, delayMs, rootMargin]);
 
   return { ref, inView };
 }

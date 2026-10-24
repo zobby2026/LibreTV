@@ -9,10 +9,22 @@ export default function AboutPage() {
       <Header />
       <main className="flex-1 max-w-2xl w-full mx-auto px-4 py-10 space-y-8">
         <section>
-          <h1 className="text-xl font-bold text-content mb-3">关于 LibreTV</h1>
+          <h1 className="text-xl font-bold text-content mb-3">关于 zobby的影视库</h1>
           <p className="text-sm text-muted leading-relaxed">
-            LibreTV 是一个免费的在线视频搜索与观看平台。输入片名即可在多个点播源中聚合搜索，
+            zobby的影视库是一个免费的在线视频搜索与观看平台。输入片名即可在多个点播源中聚合搜索，
             无需注册、无内嵌广告、不存储任何视频文件。所有播放内容均来自第三方公开接口。
+          </p>
+          <p className="text-sm text-muted leading-relaxed mt-2">
+            本站基于{' '}
+            <a
+              href="https://github.com/LibreSpark/LibreTV"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent hover:underline"
+            >
+              LibreTV
+            </a>{' '}
+            开源项目，遵循 AGPL-3.0 许可证。
           </p>
         </section>
 

@@ -393,7 +393,7 @@ export function VideoCard({ item, onClick }: { item: SearchResultItem; onClick: 
   );
 }
 
-/** 豆瓣推荐卡片（无来源徽章，点击直接搜索） */
+/** 推荐海报（横滑栏用）：点击直接按片名搜索，不带点播源徽章 */
 export function DoubanCard({ item, onClick }: { item: { title: string; cover: string; rating?: string }; onClick: () => void }) {
   const imageProxyMode = useAppStore((s) => s.imageProxyMode);
   const customImageProxy = useAppStore((s) => s.customImageProxy);
@@ -402,7 +402,7 @@ export function DoubanCard({ item, onClick }: { item: { title: string; cover: st
 
   return (
     <div
-      className="card cursor-pointer hover:scale-[1.03] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+      className="w-32 sm:w-40 md:w-44 shrink-0 snap-start cursor-pointer group focus-visible:outline-none"
       role="button"
       tabIndex={0}
       onClick={onClick}
@@ -414,7 +414,7 @@ export function DoubanCard({ item, onClick }: { item: { title: string; cover: st
         }
       }}
     >
-      <div className="relative aspect-[2/3] bg-chip">
+      <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-chip ring-1 ring-line group-hover:-translate-y-0.5 group-focus-visible:ring-2 group-focus-visible:ring-accent/50 transition-transform">
         {item.cover && !imgFailed ? (
           <SmartImage
             url={item.cover}
@@ -437,10 +437,8 @@ export function DoubanCard({ item, onClick }: { item: { title: string; cover: st
           </span>
         )}
       </div>
-      <div className="p-2">
-        <div className="text-xs font-medium text-content truncate" title={item.title}>
-          {item.title}
-        </div>
+      <div className="mt-1.5 text-sm font-medium text-content truncate" title={item.title}>
+        {item.title}
       </div>
     </div>
   );
