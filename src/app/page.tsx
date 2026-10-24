@@ -1,25 +1,27 @@
 'use client';
 
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { Header } from '@/components/header';
 import { RecommendSection } from '@/components/douban-section';
+import { HomeHero } from '@/components/home-hero';
+import { ContinueWatching } from '@/components/continue-watching';
 import { DetailModal } from '@/components/detail-modal';
 import { AggregatedCard, aggregateResults } from '@/components/video-card';
 import { useAppStore, resolveSource, isInDisabledSubscription, isSourceDisabled } from '@/lib/store';
 import { api } from '@/lib/client-api';
 import type { SearchResultItem, SourceSearchOutcome } from '@/lib/types';
-import { SearchHistoryDropdown, useSearchHistory } from '@/components/search-history';
-import { cn, formatDisableTtl, validateSourceUrl } from '@/lib/utils';
+import { formatDisableTtl, validateSourceUrl } from '@/lib/utils';
+import { addSearchHistory } from '@/lib/db';
 import { useToast } from '@/components/toast';
 import { EmptyState } from '@/components/states';
-import { Icon } from '@/components/icon';
 import { SiteFooter } from '@/components/site-footer';
 
 /**
- * 首页：搜索（URL ?s= 驱动，可后退/分享）+ 豆瓣推荐。
- * 搜索状态由 React Query 管理，失败源在结果区顶部以非阻塞方式展示。
+ * 首页：发现（Hero + 继续观看 + 推荐横滑栏）与搜索结果（URL ?s= 驱动）。
+ * 搜索框在顶栏；搜索状态由 React Query 管理，失败源在结果区顶部以非阻塞方式展示。
  */
 /** 搜索结果分批渲染的批大小：一次挂载上千张卡片会明显掉帧 */
 const RESULT_PAGE_SIZE = 60;
@@ -45,16 +47,9 @@ function HomeContent() {
   const yellowFilter = useAppStore((s) => s.yellowFilter);
   const sourceHealth = useAppStore((s) => s.sourceHealth);
   const subscriptions = useAppStore((s) => s.subscriptions);
-  const [input, setInput] = useState(urlQuery);
   const [detailItem, setDetailItem] = useState<SearchResultItem | null>(null);
   /** 流式搜索中已结算的源（data 就绪前用于增量渲染） */
   const [streamedOutcomes, setStreamedOutcomes] = useState<SourceSearchOutcome[]>([]);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // URL 驱动搜索：?s= 变化时回填输入框
-  useEffect(() => {
-    if (urlQuery) setInput(urlQuery);
-  }, [urlQuery]);
 
   // 源名回显：失败/停用提示里显示友好名称而非裸 key
   const sourceName = (key: string) =>
@@ -116,28 +111,20 @@ function HomeContent() {
     staleTime: 300_000,
   });
 
-  // 最近搜索改为搜索框下拉（聚焦展开、按输入过滤），不再常驻首屏
-  const searchHistory = useSearchHistory(input);
-
   const runSearch = (q: string) => {
     const query = q.trim().slice(0, 100);
-    if (!query) {
-      toast('请输入搜索内容', 'info');
-      inputRef.current?.focus();
-      return;
-    }
+    if (!query) return;
     if (selectedSources.length === 0) {
       toast('请先在设置中添加并勾选点播源', 'warning');
       return;
     }
-    router.push(`/?s=${encodeURIComponent(query)}`, { scroll: false });
-    searchHistory.record(query);
+    router.push(`/?s=${encodeURIComponent(query)}`);
+    void addSearchHistory(query);
   };
 
-  const pickHistory = (text: string) => {
-    setInput(text);
-    searchHistory.close();
-    runSearch(text);
+  const jumpDiscover = (id: string) => {
+    const el = document.getElementById(id) || document.getElementById('discover');
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const isSearching = Boolean(urlQuery) && searchQuery.isFetching && !searchQuery.data;
@@ -165,124 +152,13 @@ function HomeContent() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header />
+      <Header showSearch syncQuery={urlQuery} />
 
-      <main className="relative flex-1 max-w-6xl w-full mx-auto px-4 py-6">
-        {/* 首屏氛围渐变 */}
-        {!urlQuery && (
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-0 h-[420px] -z-10"
-            style={{
-              background:
-                'radial-gradient(60% 60% at 50% 0%, rgba(35,173,229,0.10) 0%, rgba(35,173,229,0.03) 45%, transparent 75%)',
-            }}
-          />
-        )}
-
-        {/* 搜索区 */}
-        <section className={cn('flex flex-col items-center', urlQuery ? 'mb-6' : 'mt-8 mb-8')}>
-          {!urlQuery && (
-            <header className="text-center mb-6">
-              <h1 className="text-4xl sm:text-5xl font-bold brand-gradient">LibreTV</h1>
-            </header>
-          )}
-          {urlQuery && <h1 className="sr-only">LibreTV 视频搜索</h1>}
-          {/* 定位容器比胶囊宽一圈：浮层按它的宽度对齐，接缝处不会与胶囊边框错位 1px */}
-          <div ref={searchHistory.containerRef} className="relative w-full max-w-2xl">
-            <form
-              className="w-full"
-              onSubmit={(e) => {
-                e.preventDefault();
-                runSearch(input);
-              }}
-            >
-              {/* 输入框与搜索按钮合并为一个胶囊：内部无边框，焦点态由容器统一表达；
-                  下拉展开时改为「上圆下直」并隐去底边，与下方浮层拼成同一个面板 */}
-              <div
-                className={cn(
-                  // 12px 圆角矩形（非胶囊）：收起态与展开态共用同一组上圆角，
-                  // 展开时输入框这部分形状完全不发生变化，上下圆角也与下拉保持一致；
-                  // 右侧与上下不留内边距，由搜索按钮拉伸填满、与搜索框边缘贴合
-                  'flex items-stretch min-h-12 pl-4 border',
-                  'transition-[background-color,border-color,border-radius] duration-200',
-                  searchHistory.visible
-                    ? // 展开时：外框（含上圆角）沿用输入框的聚焦样式不变，只把底边改为内部分隔线，
-                      // 使输入区在展开状态下仍是边界清晰的独立输入框，而非与列表糊成一片
-                      'rounded-t-xl rounded-b-none border-accent border-b-line bg-surface-raised'
-                    : 'rounded-xl border-line bg-chip focus-within:border-accent focus-within:ring-1 focus-within:ring-accent/40'
-                )}
-              >
-                <input
-                  ref={inputRef}
-                  className="flex-1 min-w-0 pr-2 bg-transparent text-sm text-content placeholder:text-faint focus:outline-none"
-                  placeholder="输入影片名称..."
-                  value={input}
-                  maxLength={100}
-                  onChange={(e) => {
-                    setInput(e.target.value);
-                    searchHistory.resetActive();
-                  }}
-                  onFocus={searchHistory.onFocus}
-                  onKeyDown={(e) => searchHistory.onKeyDown(e, pickHistory)}
-                  role="combobox"
-                  aria-label="搜索影片"
-                  aria-expanded={searchHistory.visible}
-                  aria-controls="home-search-history"
-                  aria-autocomplete="list"
-                  aria-activedescendant={
-                    searchHistory.visible && searchHistory.activeIndex >= 0
-                      ? `home-search-history-${searchHistory.activeIndex}`
-                      : undefined
-                  }
-                />
-                {input && (
-                  <button
-                    type="button"
-                    className="shrink-0 self-center mr-1 p-1.5 rounded-full text-faint hover:text-content hover:bg-hover transition-colors"
-                    onClick={() => {
-                      setInput('');
-                      searchHistory.resetActive();
-                      inputRef.current?.focus();
-                    }}
-                    aria-label="清空"
-                  >
-                    <Icon name="close" className="w-4 h-4" />
-                  </button>
-                )}
-                {/* 主操作按钮：贴合搜索框右端——右侧圆角跟随容器、左侧直角，展开时右下角
-                    跟着容器一起改直角；按压改用亮度反馈（缩放会让贴合边缘露出缝隙） */}
-                <button
-                  type="submit"
-                  className={cn(
-                    'btn-primary shrink-0 px-4 font-medium transition-[background-color,filter] active:brightness-90',
-                    '!rounded-l-none',
-                    searchHistory.visible ? '!rounded-tr-xl !rounded-br-none' : '!rounded-r-xl'
-                  )}
-                >
-                  <Icon name="search" className="w-4 h-4" />
-                  搜索
-                </button>
-              </div>
-            </form>
-
-            {/* 最近搜索：与输入框无缝拼接；浮层不占文档流，出现/消失不会顶动下方内容 */}
-            {searchHistory.visible && (
-              <SearchHistoryDropdown
-                id="home-search-history"
-                matches={searchHistory.matches}
-                activeIndex={searchHistory.activeIndex}
-                onPick={pickHistory}
-                onRemove={searchHistory.remove}
-                onClearAll={searchHistory.clearAll}
-              />
-            )}
-          </div>
-        </section>
-
-        {/* 搜索结果 */}
-        {urlQuery && (
-          <section aria-label="搜索结果" className="mb-10">
+      <main className="relative flex-1 w-full">
+        {urlQuery ? (
+          <div className="max-w-6xl w-full mx-auto px-4 py-6">
+            <h1 className="sr-only">zobby的影视库 视频搜索</h1>
+            <section aria-label="搜索结果" className="mb-10">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm text-muted">
                 “<span className="text-content">{urlQuery}</span>” 的搜索结果
@@ -361,23 +237,55 @@ function HomeContent() {
                 className="!py-16"
               />
             )}
-          </section>
-        )}
-
-        {/* 首页推荐（有搜索时隐藏） */}
-        {!urlQuery && (
-          <RecommendSection
-            onPick={(title) => {
-              setInput(title);
-              runSearch(title);
-            }}
-          />
+            </section>
+          </div>
+        ) : (
+          <>
+            <div className="max-w-6xl w-full mx-auto px-4 pt-4">
+              <QuickChips onJump={jumpDiscover} />
+            </div>
+            <HomeHero onWatch={runSearch} />
+            <div className="max-w-6xl w-full mx-auto px-4 pt-6 pb-10">
+              <ContinueWatching />
+              <RecommendSection onPick={runSearch} />
+            </div>
+          </>
         )}
       </main>
 
       <SiteFooter />
 
       <DetailModal item={detailItem} onClose={() => setDetailItem(null)} />
+    </div>
+  );
+}
+
+const DISCOVER_CHIPS = [
+  { id: 'discover-movie', label: '电影' },
+  { id: 'discover-tv', label: '剧集' },
+  { id: 'discover-variety', label: '综艺' },
+];
+
+/** 电影 / 剧集 / 综艺滚到对应推荐栏，直播进入现有直播页 */
+function QuickChips({ onJump }: { onJump: (id: string) => void }) {
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin" aria-label="快速分类">
+      {DISCOVER_CHIPS.map((chip) => (
+        <button
+          key={chip.id}
+          type="button"
+          className="shrink-0 px-3.5 py-1.5 rounded-full text-sm bg-chip text-muted border border-line hover:text-content hover:bg-hover transition-colors"
+          onClick={() => onJump(chip.id)}
+        >
+          {chip.label}
+        </button>
+      ))}
+      <Link
+        href="/live"
+        className="shrink-0 px-3.5 py-1.5 rounded-full text-sm bg-chip text-muted border border-line hover:text-content hover:bg-hover transition-colors"
+      >
+        直播
+      </Link>
     </div>
   );
 }
@@ -410,7 +318,7 @@ function NoSourceGuide({ hasSources = false }: { hasSources?: boolean }) {
           <>点击右上角「设置」，勾选要参与搜索的点播源后重新搜索。</>
         ) : (
           <>
-            LibreTV 不内置任何采集站。点击右上角「设置 → 添加 API」，填入一个
+            本站不内置任何采集站。点击右上角「设置 → 添加 API」，填入一个
             Apple CMS 采集站地址（如 <code className="text-accent text-xs">https://example.com/api.php/provide/vod</code>），
             勾选后即可开始搜索。
           </>
