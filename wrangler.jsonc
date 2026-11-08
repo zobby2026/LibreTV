@@ -1,6 +1,7 @@
 // Workers 项目目录不可写。账号数据走 KV 绑定 LIBRETV_DATA。
 // keep_vars 让仪表盘里额外的纯文本变量在下次部署后还在；PASSWORD 仍是 Secret，不写进仓库。
 // vars 是当前线上的非密钥配置，避免 Workers Builds 再次把它们清掉。
+// placement=smart：搜索和豆瓣请求会尽量靠近国内采集站，少绕一圈美国节点。
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "libretv",
@@ -11,6 +12,7 @@
     "global_fetch_strictly_public"
   ],
   "keep_vars": true,
+  "placement": { "mode": "smart" },
   "observability": {
     "enabled": true
   },

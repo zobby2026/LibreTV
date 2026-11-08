@@ -13,8 +13,8 @@ interface SearchBody {
   filterAdult?: boolean;
 }
 
-/** 搜索结果短缓存：同一关键词 + 同一组源在 TTL 内直接返回（播放页返回搜索页等场景） */
-const SEARCH_CACHE_TTL = 60 * 1000;
+/** 搜索结果短缓存：同一关键词 + 同一组源在 TTL 内直接返回。与首页 React Query 的 5 分钟 staleTime 对齐，避免刚过 1 分钟又把 8 个采集站打一遍。 */
+const SEARCH_CACHE_TTL = 5 * 60 * 1000;
 
 /** 缓存键：wd + 成人过滤 + 排序后的源地址集合（直接用完整字符串，避免哈希碰撞串缓存） */
 function searchCacheKey(wd: string, sources: SourceConfig[], filterAdult: boolean): string {

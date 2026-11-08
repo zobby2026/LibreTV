@@ -16,7 +16,10 @@ export async function GET(req: Request) {
 
   try {
     const items = await fetchHotList(id);
-    return NextResponse.json({ items });
+    return NextResponse.json(
+      { items },
+      { headers: { 'Cache-Control': 'private, max-age=600' } }
+    );
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : '榜单获取失败' },

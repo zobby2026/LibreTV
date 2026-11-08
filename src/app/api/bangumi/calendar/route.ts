@@ -11,9 +11,12 @@ export async function GET(req: Request) {
 
   try {
     const days = await fetchBangumiCalendar();
-    return NextResponse.json({
-      days: Object.entries(days).map(([weekday, items]) => ({ weekday: Number(weekday), items })),
-    });
+    return NextResponse.json(
+      {
+        days: Object.entries(days).map(([weekday, items]) => ({ weekday: Number(weekday), items })),
+      },
+      { headers: { 'Cache-Control': 'private, max-age=600' } }
+    );
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : '新番放送表获取失败' },
