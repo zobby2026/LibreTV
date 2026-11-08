@@ -1,18 +1,14 @@
 import crypto from 'node:crypto';
-import fs from 'node:fs/promises';
-import path from 'node:path';
 import { hashPassword, verifyPassword } from './passwords';
+import { deleteStored, ensureDataStore, readStoredJson, writeStoredJson } from './document-store';
 import type { InviteRecord, PublicUser, SharedConfig, UserDataPayload, UserRole } from './user-types';
 
 /**
- * 用户数据存储（文件实现）。
+ * 用户数据存储。
  *
- * 为什么是文件而不是 SQLite：本站是单实例自托管，用户量在几十人量级，
- * 一次消息推送就是读写一个几十 KB 的 JSON；换成 better-sqlite3 要多一个原生模块
- * 编译依赖，反而让 Docker 构建更脆。所以：
- * - 每个用户的数据单独一个文件（避免多人同时写同一文件）
- * - 所有写操作串行化（单进程内队列）+ 先写临时文件再 rename（原子替换）
- * - 内存里不做长期缓存，读多了磁盘也就几毫秒；避免 dev 热重载后缓存不一致
+ * Docker / 本机写 data/ 下的 JSON。Cloudflare Workers 没有可写项目目录，
+ * 同一套键改存到 KV 绑定 LIBRETV_DATA（见 document-store.ts）。
+ * 每个用户的数据单独一份，写操作在单进程内串行。
  *
  * 换成外部数据库时，只需替换本文件的导出函数，API 层不用动。
  */
@@ -51,31 +47,10 @@ function serialize<T>(fn: () => Promise<T>): Promise<T> {
   return next;
 }
 
-function dataDir(): string {
-  return process.env.LIBRETV_DATA_DIR || path.join(process.cwd(), 'data');
-}
-const usersPath = () => path.join(dataDir(), 'users.json');
-const invitesPath = () => path.join(dataDir(), 'invites.json');
-const sharedPath = () => path.join(dataDir(), 'shared.json');
-const userDataPath = (userId: string) => path.join(dataDir(), 'user-data', `${userId}.json`);
-
-async function readJson<T>(file: string, fallback: T): Promise<T> {
-  try {
-    const raw = await fs.readFile(file, 'utf8');
-    if (!raw.trim()) return fallback;
-    return JSON.parse(raw) as T;
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return fallback;
-    throw err;
-  }
-}
-
-async function writeJson(file: string, value: unknown): Promise<void> {
-  await fs.mkdir(path.dirname(file), { recursive: true });
-  const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
-  await fs.writeFile(tmp, JSON.stringify(value, null, 2), 'utf8');
-  await fs.rename(tmp, file);
-}
+const USERS_KEY = 'users.json';
+const INVITES_KEY = 'invites.json';
+const SHARED_KEY = 'shared.json';
+const userDataKey = (userId: string) => `user-data/${userId}.json`;
 
 // —— 用户名 / 密码 / 邀请码规则 ——
 
@@ -143,7 +118,7 @@ function makeUser(
  * 避免站点刚上线就被公网上的陌生人抢注成管理员（见 /api/setup）。
  */
 async function initOnce(): Promise<void> {
-  await fs.mkdir(path.join(dataDir(), 'user-data'), { recursive: true });
+  await ensureDataStore();
 }
 
 export function ensureStore(): Promise<void> {
@@ -159,12 +134,12 @@ export function ensureStore(): Promise<void> {
 
 async function readUsers(): Promise<UserRecord[]> {
   await ensureStore();
-  const file = await readJson<UsersFile>(usersPath(), { users: [] });
+  const file = await readStoredJson<UsersFile>(USERS_KEY, { users: [] });
   return file.users;
 }
 
 async function writeUsers(users: UserRecord[]): Promise<void> {
-  await writeJson(usersPath(), { users });
+  await writeStoredJson(USERS_KEY, { users });
 }
 
 // —— 查询 ——
@@ -263,7 +238,7 @@ export async function registerWithInvite(input: {
   if (!code) return { ok: false, error: '请填写邀请码' };
 
   return serialize(async () => {
-    const invitesFile = await readJson<InvitesFile>(invitesPath(), { invites: [] });
+    const invitesFile = await readStoredJson<InvitesFile>(INVITES_KEY, { invites: [] });
     const invite = invitesFile.invites.find((i) => i.code === code);
     if (!invite) return { ok: false, error: '邀请码无效' };
     if (invite.usedAt) return { ok: false, error: '邀请码已被使用' };
@@ -279,7 +254,7 @@ export async function registerWithInvite(input: {
     invite.usedAt = Date.now();
     invite.usedBy = user.id;
     invite.usedByUsername = user.username;
-    await writeJson(invitesPath(), invitesFile);
+    await writeStoredJson(INVITES_KEY, invitesFile);
     try {
       users.push(user);
       await writeUsers(users);
@@ -287,7 +262,7 @@ export async function registerWithInvite(input: {
       invite.usedAt = undefined;
       invite.usedBy = undefined;
       invite.usedByUsername = undefined;
-      await writeJson(invitesPath(), invitesFile).catch(() => {});
+      await writeStoredJson(INVITES_KEY, invitesFile).catch(() => {});
       throw err;
     }
     return { ok: true, user: toPublic(user) };
@@ -300,7 +275,7 @@ export async function generateInvite(createdBy: string, note?: string): Promise<
   return serialize(async () => {
     const users = await readUsers();
     const creator = users.find((u) => u.id === createdBy);
-    const invitesFile = await readJson<InvitesFile>(invitesPath(), { invites: [] });
+    const invitesFile = await readStoredJson<InvitesFile>(INVITES_KEY, { invites: [] });
     let code = randomCode();
     while (invitesFile.invites.some((i) => i.code === code)) code = randomCode();
     const record: InviteRecord = {
@@ -311,24 +286,24 @@ export async function generateInvite(createdBy: string, note?: string): Promise<
       note: note?.trim() || undefined,
     };
     invitesFile.invites.push(record);
-    await writeJson(invitesPath(), invitesFile);
+    await writeStoredJson(INVITES_KEY, invitesFile);
     return record;
   });
 }
 
 export async function listInvites(): Promise<InviteRecord[]> {
   await ensureStore();
-  const file = await readJson<InvitesFile>(invitesPath(), { invites: [] });
+  const file = await readStoredJson<InvitesFile>(INVITES_KEY, { invites: [] });
   return file.invites.slice().sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export async function revokeInvite(code: string): Promise<boolean> {
   return serialize(async () => {
-    const file = await readJson<InvitesFile>(invitesPath(), { invites: [] });
+    const file = await readStoredJson<InvitesFile>(INVITES_KEY, { invites: [] });
     const idx = file.invites.findIndex((i) => i.code === code);
     if (idx === -1 || file.invites[idx].usedAt) return false;
     file.invites.splice(idx, 1);
-    await writeJson(invitesPath(), file);
+    await writeStoredJson(INVITES_KEY, file);
     return true;
   });
 }
@@ -337,7 +312,7 @@ export async function revokeInvite(code: string): Promise<boolean> {
 
 export async function getUserData(userId: string): Promise<UserDataPayload> {
   await ensureStore();
-  return readJson<UserDataPayload>(userDataPath(userId), { data: {}, updatedAt: 0 });
+  return readStoredJson<UserDataPayload>(userDataKey(userId), { data: {}, updatedAt: 0 });
 }
 
 export async function saveUserData(
@@ -345,7 +320,7 @@ export async function saveUserData(
   data: Record<string, unknown>
 ): Promise<UserDataPayload> {
   const payload: UserDataPayload = { data, updatedAt: Date.now() };
-  await writeJson(userDataPath(userId), payload);
+  await writeStoredJson(userDataKey(userId), payload);
   return payload;
 }
 
@@ -353,7 +328,7 @@ export async function saveUserData(
 
 export async function getSharedConfig(): Promise<SharedConfig> {
   await ensureStore();
-  return readJson<SharedConfig>(sharedPath(), {
+  return readStoredJson<SharedConfig>(SHARED_KEY, {
     customAPIs: [],
     subscriptions: [],
     liveSubscriptions: [],
@@ -366,7 +341,7 @@ export async function saveSharedConfig(
   updatedBy: string
 ): Promise<SharedConfig> {
   return serialize(async () => {
-    const current = await readJson<SharedConfig>(sharedPath(), {
+    const current = await readStoredJson<SharedConfig>(SHARED_KEY, {
       customAPIs: [],
       subscriptions: [],
       liveSubscriptions: [],
@@ -379,7 +354,7 @@ export async function saveSharedConfig(
       updatedAt: Date.now(),
       updatedBy,
     };
-    await writeJson(sharedPath(), next);
+    await writeStoredJson(SHARED_KEY, next);
     return next;
   });
 }
@@ -420,7 +395,7 @@ export async function deleteUser(userId: string): Promise<boolean> {
     if (users[idx].role === 'admin' && admins.length <= 1) return false;
     users.splice(idx, 1);
     await writeUsers(users);
-    await fs.unlink(userDataPath(userId)).catch(() => {});
+    await deleteStored(userDataKey(userId));
     return true;
   });
 }

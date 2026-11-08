@@ -1,0 +1,42 @@
+// Workers 项目目录不可写。账号数据走 KV 绑定 LIBRETV_DATA。
+// keep_vars 让仪表盘里额外的纯文本变量在下次部署后还在；PASSWORD 仍是 Secret，不写进仓库。
+// vars 是当前线上的非密钥配置，避免 Workers Builds 再次把它们清掉。
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "libretv",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-11-04",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "global_fetch_strictly_public"
+  ],
+  "keep_vars": true,
+  "observability": {
+    "enabled": true
+  },
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "images": {
+    "binding": "IMAGES"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "libretv"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "LIBRETV_DATA",
+      "id": "6e35779decf448cba4d08bbc646eef88"
+    }
+  ],
+  "vars": {
+    "SEARCH_MAX_PAGES": "2",
+    "DEFAULT_RECOMMEND_SOURCE": "douban",
+    "DEFAULT_SOURCES": "[{\"name\":\"非凡资源\",\"url\":\"https://cj.ffzyapi.com/api.php/provide/vod\",\"detail\":\"https://cj.ffzyapi.com\",\"isAdult\":false},{\"name\":\"量子资源\",\"url\":\"https://cj.lziapi.com/api.php/provide/vod\",\"detail\":\"https://cj.lziapi.com\",\"isAdult\":false},{\"name\":\"电影天堂\",\"url\":\"https://caiji.dyttzyapi.com/api.php/provide/vod\",\"detail\":\"https://caiji.dyttzyapi.com\",\"isAdult\":false},{\"name\":\"暴风资源\",\"url\":\"https://bfzyapi.com/api.php/provide/vod\",\"detail\":\"https://bfzyapi.com\",\"isAdult\":false},{\"name\":\"爱坤资源\",\"url\":\"https://ikunzyapi.com/api.php/provide/vod\",\"detail\":\"https://ikunzyapi.com\",\"isAdult\":false},{\"name\":\"最大资源\",\"url\":\"https://api.zuidapi.com/api.php/provide/vod\",\"detail\":\"https://api.zuidapi.com\",\"isAdult\":false},{\"name\":\"U酷资源\",\"url\":\"https://api.ukuapi88.com/api.php/provide/vod\",\"detail\":\"https://api.ukuapi88.com\",\"isAdult\":false},{\"name\":\"红牛资源\",\"url\":\"https://www.hongniuzy2.com/api.php/provide/vod\",\"detail\":\"https://www.hongniuzy2.com\",\"isAdult\":false}]",
+    "DEFAULT_LIVE_SOURCES": "[{\"name\":\"中国频道(iptv-org)\",\"url\":\"https://iptv-org.github.io/iptv/countries/cn.m3u\",\"epg\":\"https://epg.pw/xmltv/epg_CN.xml\"},{\"name\":\"中文频道(iptv-org)\",\"url\":\"https://iptv-org.github.io/iptv/languages/zho.m3u\",\"epg\":\"https://epg.pw/xmltv/epg_CN.xml\"},{\"name\":\"范明明IPv6\",\"url\":\"https://live.fanmingming.com/tv/m3u/ipv6.m3u\",\"epg\":\"https://live.fanmingming.com/e.xml\"},{\"name\":\"合集IPv4\",\"url\":\"https://live.zbds.top/tv/iptv4.m3u\",\"epg\":\"https://epg.112114.xyz/pp.xml.gz\"}]"
+  }
+}
