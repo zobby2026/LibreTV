@@ -37,6 +37,7 @@ import { describeParseStats } from '@/lib/tvbox-parser';
  * - 一级按性质分组：源管理 / 偏好设置 / 数据；
  * - 二级为该分组下的具体面板，每次只渲染一类内容，避免源很多时长距离滚动。
  * 选中位置记忆到 localStorage，再次打开回到上次所在面板。
+ * 「源管理」「数据」属于站点级配置，仅管理员可见；普通用户只保留「偏好设置」。
  */
 
 type PrimaryTab = 'sources' | 'prefs' | 'data';
@@ -64,13 +65,30 @@ const SECONDARY_TABS: Record<PrimaryTab, { id: SecondaryTab; label: string }[]> 
 
 const TAB_STORAGE_KEY = 'libretv-settings-tab';
 
+/** 仅管理员可进入的一级分组（站点级配置） */
+const ADMIN_ONLY_TABS: PrimaryTab[] = ['sources', 'data'];
+
 export function SourceManagerDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { checked, isAdmin } = useAuth();
   const [primary, setPrimary] = useState<PrimaryTab>('sources');
   const [secondary, setSecondary] = useState<Record<PrimaryTab, SecondaryTab>>({
     sources: 'vod',
     prefs: 'playback',
     data: 'io',
   });
+
+  // 鉴权结果回来前（checked=false）先不裁剪，避免管理员的标签闪一下再出现
+  const allowedPrimary = useMemo(
+    () => (checked && !isAdmin ? PRIMARY_TABS.filter((t) => !ADMIN_ONLY_TABS.includes(t.id)) : PRIMARY_TABS),
+    [checked, isAdmin]
+  );
+
+  // 非管理员不得停留在管理员分组：localStorage 里可能记着上次的 sources/data
+  const effectivePrimary: PrimaryTab = allowedPrimary.some((t) => t.id === primary) ? primary : allowedPrimary[0].id;
+
+  useEffect(() => {
+    if (effectivePrimary !== primary) setPrimary(effectivePrimary);
+  }, [effectivePrimary, primary]);
 
   // 挂载后读取上次位置（不在渲染期读 localStorage，避免 SSR/hydration 不一致）
   useEffect(() => {
@@ -107,7 +125,7 @@ export function SourceManagerDrawer({ open, onClose }: { open: boolean; onClose:
     }
   }, [primary, secondary]);
 
-  const current = secondary[primary];
+  const current = secondary[effectivePrimary];
 
   return (
     <Drawer
@@ -117,13 +135,16 @@ export function SourceManagerDrawer({ open, onClose }: { open: boolean; onClose:
       resetScrollKey={current}
       subheader={
         <div className="space-y-2">
-          <TabRow tabs={PRIMARY_TABS} value={primary} onChange={setPrimary} variant="primary" ariaLabel="设置分类" />
+          {/* 只剩一个分组时（普通用户）不必显示一级导航 */}
+          {allowedPrimary.length > 1 && (
+            <TabRow tabs={allowedPrimary} value={effectivePrimary} onChange={setPrimary} variant="primary" ariaLabel="设置分类" />
+          )}
           {/* 分组下只有一项时无需二级导航，直接展示该面板 */}
-          {SECONDARY_TABS[primary].length > 1 && (
+          {SECONDARY_TABS[effectivePrimary].length > 1 && (
             <TabRow
-              tabs={SECONDARY_TABS[primary]}
+              tabs={SECONDARY_TABS[effectivePrimary]}
               value={current}
-              onChange={(id) => setSecondary((prev) => ({ ...prev, [primary]: id }))}
+              onChange={(id) => setSecondary((prev) => ({ ...prev, [effectivePrimary]: id }))}
               variant="secondary"
               ariaLabel="设置项"
             />

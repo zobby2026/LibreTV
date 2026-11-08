@@ -4,6 +4,7 @@ import { ApiError, api } from './client-api';
 import { normalizeSubscriptionUrl } from './source-list';
 import { useAppStore, type SourceSubscription } from './store';
 import { describeParseStats } from './tvbox-parser';
+import { ensureUserSourcesSelected } from './user-data-sync';
 import type { AuthStatusResponse, SubscriptionParseStats } from './types';
 
 /**
@@ -247,4 +248,7 @@ export async function applyEnvPresets(
       useAppStore.setState({ imageProxyMode: status.defaultImageMode });
     }
   }
+  // 预置源与预置订阅都落地后，再给普通用户兜底勾选一次：
+  // 他们看不到「源管理」，不自动勾上就等于搜不到任何片（详见 ensureUserSourcesSelected）
+  ensureUserSourcesSelected();
 }

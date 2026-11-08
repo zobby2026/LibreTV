@@ -167,6 +167,30 @@ async function clearLocalPersonalData(): Promise<void> {
 
 // —— 共享配置（源与订阅） ——
 
+/**
+ * 普通用户的源勾选由系统托管。
+ *
+ * 「源管理」只是管理员的入口，普通用户看不到那个面板，也就没有任何机会去勾选源；
+ * 而搜索只认 selectedKeys 里勾过的源（store.ts:selectedKeys 默认为空数组），
+ * 不管的话普通用户会「登录了但一个片都搜不到」。
+ *
+ * 所以非管理员一律：可用源全选（成人源在过滤开启时除外）。
+ * 管理员不受影响（他们自己勾选，也可能故意停用某个源）。
+ *
+ * `role` 参数只为单测注入，运行时省略即用当前会话的角色。
+ */
+export function ensureUserSourcesSelected(role: 'admin' | 'user' | null = activeRole): void {
+  // 只处理已登录的普通用户：管理员自己勾选，未登录时改本地也没有意义
+  if (role !== 'user') return;
+  const state = useAppStore.getState();
+  const available = [...state.envSources, ...state.customAPIs];
+  if (available.length === 0) return;
+  const desired = available.filter((s) => !s.isAdult || !state.yellowFilter).map((s) => s.key);
+  const current = state.selectedKeys;
+  const same = current.length === desired.length && desired.every((k) => current.includes(k));
+  if (!same) useAppStore.setState({ selectedKeys: desired });
+}
+
 /** 把管理员维护的源与订阅套用到本地；服务端还没配过就什么都不做 */
 export async function applySharedConfig(): Promise<void> {
   try {
@@ -181,6 +205,9 @@ export async function applySharedConfig(): Promise<void> {
   } catch {
     // 未登录 / 网络异常：保留本地已有的源，不影响使用
   }
+  // 共享源落地后再兜底勾选一次（此时 envSources 可能还没下发，
+  // applyEnvPresets 结束时还会再补一次，两处都是幂等的）
+  ensureUserSourcesSelected();
 }
 
 // —— 上传 ——
