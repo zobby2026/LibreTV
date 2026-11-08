@@ -131,12 +131,16 @@ export interface AuthStatusResponse {
   user: PublicUser | null;
   /** 当前会话是否有效（等价于 user !== null，保留此字段以兼容既有判断） */
   verified: boolean;
-  /** 服务端还没有任何账号，需要管理员设置 PASSWORD 完成首次初始化 */
+  /** 服务端还没有任何账号，需要创建第一个管理员 */
   setupRequired: boolean;
+  /** 初始化时需要先填部署密钥（部署者设置了 PASSWORD 时为 true） */
+  setupRequiresKey: boolean;
   /** 已注册账号数 */
   userCount: number;
   /** 只有一个账号：登录框预填用户名，让从单密码版升级来的用户仍然「只输密码」 */
   legacyPasswordMode: boolean;
+  /** 只有一个账号时该账号的用户名（登录框据此预填）；多账号或无账号为 null */
+  singleUsername: string | null;
   version: string;
   /** 部署者通过 DEFAULT_SOURCES 环境变量预置的采集站（未配置时为空数组） */
   defaultSources: SourceConfig[];

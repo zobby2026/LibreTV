@@ -113,6 +113,14 @@ export const api = {
   /** 当前会话对应的用户（永远 200：未登录就是 authenticated=false） */
   me: () => request<AuthUserResponse>('/api/auth'),
 
+  /** 站点初始化：创建第一个管理员（仅在零账号时可用），成功后直接建立会话 */
+  setup: (username: string, password: string, setupKey?: string) =>
+    request<{ success: boolean; user: PublicUser }>('/api/setup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, setupKey }),
+    }),
+
   /** 登录：用户名 + 密码。只有一个账号时 username 可省略 */
   login: (username: string, password: string) =>
     request<{ success: boolean; user: PublicUser }>('/api/auth', {

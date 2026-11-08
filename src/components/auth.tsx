@@ -26,10 +26,14 @@ interface AuthContextValue {
   user: PublicUser | null;
   /** 是否管理员（管理邀请码、共享源） */
   isAdmin: boolean;
-  /** 服务端还没有任何账号，需要管理员先设置 PASSWORD 完成初始化 */
+  /** 服务端还没有任何账号，需要创建第一个管理员 */
   setupRequired: boolean;
+  /** 初始化时是否要先填部署密钥（部署者设置了 PASSWORD 时为 true） */
+  setupRequiresKey: boolean;
   /** 只有一个账号：登录框预填用户名，兼容从单密码版升级的用户 */
   singleUser: boolean;
+  /** 只有一个账号时该账号的用户名（登录框预填）；否则 null */
+  soleUsername: string | null;
   /** /api/status 返回的应用版本（构建时从 package.json 注入） */
   version: string | null;
   openLogin: () => void;
@@ -42,7 +46,9 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   isAdmin: false,
   setupRequired: false,
+  setupRequiresKey: false,
   singleUser: false,
+  soleUsername: null,
   version: null,
   openLogin: () => {},
   logout: async () => {},
@@ -56,7 +62,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [checked, setChecked] = useState(false);
   const [user, setUser] = useState<PublicUser | null>(null);
   const [setupRequired, setSetupRequired] = useState(false);
+  const [setupRequiresKey, setSetupRequiresKey] = useState(false);
   const [singleUser, setSingleUser] = useState(false);
+  const [soleUsername, setSoleUsername] = useState<string | null>(null);
   const [version, setVersion] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const { toast } = useToast();
@@ -65,7 +73,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const applyStatus = useCallback((s: AuthStatusResponse) => {
     setUser(s.user ?? null);
     setSetupRequired(Boolean(s.setupRequired));
+    setSetupRequiresKey(Boolean(s.setupRequiresKey));
     setSingleUser(Boolean(s.legacyPasswordMode));
+    setSoleUsername(s.singleUsername ?? null);
     setVersion(s.version);
   }, []);
 
@@ -101,6 +111,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const openLogin = useCallback(() => setModalOpen(true), []);
+
+  // 站点还没有任何账号：直接把「创建管理员」推到面前。
+  // 否则用户点哪儿都被 401 打回来，却不知道第一步该做什么。
+  useEffect(() => {
+    if (checked && setupRequired) setModalOpen(true);
+  }, [checked, setupRequired]);
 
   const logout = useCallback(async () => {
     try {
@@ -157,12 +173,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       isAdmin: user?.role === 'admin',
       setupRequired,
+      setupRequiresKey,
       singleUser,
+      soleUsername,
       version,
       openLogin,
       logout,
     }),
-    [checked, user, setupRequired, singleUser, version, openLogin, logout]
+    [checked, user, setupRequired, setupRequiresKey, singleUser, soleUsername, version, openLogin, logout]
   );
 
   return (
@@ -171,7 +189,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {modalOpen && (
         <LoginModal
           setupRequired={setupRequired}
+          setupRequiresKey={setupRequiresKey}
           singleUser={singleUser}
+          soleUsername={soleUsername}
           onSuccess={handleLoginSuccess}
           onClose={() => setModalOpen(false)}
         />
@@ -184,17 +204,21 @@ type Mode = 'login' | 'register';
 
 function LoginModal({
   setupRequired,
+  setupRequiresKey,
   singleUser,
+  soleUsername,
   onSuccess,
   onClose,
 }: {
   setupRequired: boolean;
+  setupRequiresKey: boolean;
   singleUser: boolean;
+  soleUsername: string | null;
   onSuccess: (user: PublicUser) => void | Promise<void>;
   onClose: () => void;
 }) {
   const [mode, setMode] = useState<Mode>('login');
-  const [username, setUsername] = useState(singleUser ? 'admin' : '');
+  const [username, setUsername] = useState(soleUsername ?? '');
   const [password, setPassword] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -226,7 +250,7 @@ function LoginModal({
       if (!password) return;
       setLoading(true);
       try {
-        const res = await api.login(singleUser ? 'admin' : username.trim(), password);
+        const res = await api.login(singleUser ? (soleUsername ?? '') : username.trim(), password);
         await onSuccess(res.user);
       } catch (err) {
         const msg = err instanceof Error ? err.message : '登录失败';
@@ -275,17 +299,7 @@ function LoginModal({
         aria-label={setupRequired ? '需要初始化' : mode === 'login' ? '登录' : '邀请码注册'}
       >
         {setupRequired ? (
-          <>
-            <h2 className="mb-3 text-lg font-semibold text-content">服务端尚未初始化</h2>
-            <p className="text-sm leading-relaxed text-muted">
-              还没有任何账号。请在部署环境里设置 <code className="text-accent">PASSWORD</code>
-              环境变量后重启服务，系统会自动用这个密码创建管理员账号{' '}
-              <code className="text-accent">admin</code>，登录后即可在设置里生成邀请码、添加其他用户。
-            </p>
-            <button type="button" className="btn-ghost mt-5 w-full" onClick={onClose}>
-              我知道了
-            </button>
-          </>
+          <SetupForm requiresKey={setupRequiresKey} onSuccess={onSuccess} />
         ) : (
           <>
             <div className="mb-4 flex items-center gap-1 rounded-lg bg-content/[0.06] p-1">
@@ -387,5 +401,132 @@ function LoginModal({
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * 首次初始化：在页面上直接创建第一个管理员账号。
+ *
+ * 取代了「先去部署环境设置 PASSWORD 再重启」那套流程 —— 自建机器上多一步都是门槛。
+ * 部署者若为了防抢注配了 PASSWORD，这里会多要一个「部署密钥」框，
+ * 语义是：知道这个密码的人才是这台机器的主人。
+ */
+function SetupForm({
+  requiresKey,
+  onSuccess,
+}: {
+  requiresKey: boolean;
+  onSuccess: (user: PublicUser) => void | Promise<void>;
+}) {
+  const [username, setUsername] = useState('admin');
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [setupKey, setSetupKey] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    nameRef.current?.focus();
+  }, []);
+
+  const submit = async () => {
+    if (loading) return;
+    setError('');
+    if (!username.trim()) return setError('请填写管理员用户名');
+    if (password.length < 6) return setError('密码至少 6 位');
+    if (password !== confirm) return setError('两次输入的密码不一致');
+    if (requiresKey && !setupKey) return setError('请填写部署密钥');
+
+    setLoading(true);
+    try {
+      const res = await api.setup(username.trim(), password, requiresKey ? setupKey : undefined);
+      await onSuccess(res.user);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '创建失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const canSubmit =
+    Boolean(username.trim()) &&
+    password.length >= 6 &&
+    password === confirm &&
+    (!requiresKey || Boolean(setupKey));
+
+  return (
+    <>
+      <h2 className="mb-1 text-lg font-semibold text-content">创建管理员账号</h2>
+      <p className="mb-4 text-sm leading-relaxed text-muted">
+        这是本站的第一个账号，将拥有全部管理权限：生成邀请码、管理用户、维护共享片源。
+      </p>
+
+      <form
+        className="space-y-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void submit();
+        }}
+      >
+        <input
+          ref={nameRef}
+          type="text"
+          className="input w-full"
+          placeholder="管理员用户名"
+          autoComplete="username"
+          maxLength={24}
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
+        <input
+          type="password"
+          className="input w-full"
+          placeholder="密码（至少 6 位）"
+          autoComplete="new-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <input
+          type="password"
+          className="input w-full"
+          placeholder="再输一次密码"
+          autoComplete="new-password"
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+        />
+
+        {requiresKey && (
+          <div className="space-y-1.5">
+            <input
+              type="password"
+              className="input w-full"
+              placeholder="部署密钥"
+              autoComplete="off"
+              value={setupKey}
+              onChange={(e) => setSetupKey(e.target.value)}
+            />
+            <p className="text-xs leading-relaxed text-faint">
+              即部署时设置的 <code className="text-accent">PASSWORD</code>{' '}
+              环境变量。它在这里只用来证明你是这台机器的主人。
+            </p>
+          </div>
+        )}
+
+        {error && <p className="text-sm text-danger">{error}</p>}
+
+        <button type="submit" className="btn-primary w-full" disabled={loading || !canSubmit}>
+          {loading ? '创建中...' : '创建并开始使用'}
+        </button>
+      </form>
+
+      {!requiresKey && (
+        <p className="mt-4 text-xs leading-relaxed text-faint">
+          提示：站点尚未初始化时，谁先打开谁就能成为管理员。如果这台机器暴露在公网，
+          请立刻完成创建；也可以设置 <code className="text-accent">PASSWORD</code>{' '}
+          环境变量作为部署密钥，下次初始化就会要求先填它。
+        </p>
+      )}
+    </>
   );
 }

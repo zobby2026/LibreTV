@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { sessionUserId } from '@/lib/auth';
-import { countUsers, findUserById } from '@/lib/user-store';
+import { isPasswordConfigured, sessionUserId } from '@/lib/auth';
+import { countUsers, findUserById, getSoleUsername } from '@/lib/user-store';
 import { getEnvSources } from '@/lib/env-sources';
 import { getEnvLiveSources } from '@/lib/env-live-sources';
 import { getEnvSubscriptions } from '@/lib/env-subscriptions';
@@ -27,13 +27,18 @@ export async function GET(req: Request) {
     console.error('[zobby] 读取用户存储失败', err);
   }
   const user = userId ? await findUserById(userId).catch(() => null) : null;
+  // 单账号站点：登录框按这个用户名预填，客户端不必猜 admin
+  const soleUsername = userCount === 1 ? await getSoleUsername().catch(() => null) : null;
 
   const payload: AuthStatusResponse & Record<string, unknown> = {
     user,
     verified: Boolean(user),
     setupRequired: userCount === 0,
+    // 初始化时是否需要先填部署密钥（即部署者是否设置了 PASSWORD）
+    setupRequiresKey: isPasswordConfigured(),
     userCount,
-    legacyPasswordMode: userCount === 1,
+    legacyPasswordMode: soleUsername !== null,
+    singleUsername: soleUsername,
     // 构建时由 next.config.ts 从 package.json 注入
     version: process.env.APP_VERSION || 'dev',
     // 部署者通过 DEFAULT_SOURCES 预置的采集站

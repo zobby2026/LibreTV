@@ -15,8 +15,9 @@ services:
     volumes:
       - ./data:/app/data
     environment:
-      # 首次初始化密码：只在「一个账号都没有」时用来创建 admin，之后可删。
-      # 已有账号后这个变量留空也不影响使用。
+      # 可选：部署密钥。账号不用在这里配——首次打开站点会弹窗让你创建管理员。
+      # 设了它，初始化弹窗会多要一个「部署密钥」框（填这个值），防止公网抢注；
+      # 内网 / 自己机器可以留空。
       - PASSWORD=${PASSWORD:-}
       # 可选：会话/代理签名密钥（多实例部署建议显式设置：openssl rand -hex 32）
       # - PROXY_SECRET=your-secret

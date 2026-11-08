@@ -7,7 +7,7 @@ import {
   clientIp,
   sessionUserId,
 } from '@/lib/auth';
-import { authenticate, countUsers, findUserById } from '@/lib/user-store';
+import { authenticate, countUsers, findUserById, getSoleUsername } from '@/lib/user-store';
 import type { AuthUserResponse } from '@/lib/user-types';
 
 export const runtime = 'nodejs';
@@ -67,9 +67,10 @@ export async function POST(req: Request) {
   }
 
   // 只有一个账号时允许不填用户名：老用户升级到多用户版后，仍然只需输入原来的那个密码。
+  // 这里取的是那个账号真实的用户名，不是硬编码的 admin。
   if (!username) {
     if (userCount === 1) {
-      username = 'admin';
+      username = (await getSoleUsername()) ?? 'admin';
     } else {
       return NextResponse.json({ success: false, error: '请输入用户名' }, { status: 400 });
     }

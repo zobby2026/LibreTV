@@ -135,18 +135,15 @@ function makeUser(
 }
 
 /**
- * 首次初始化：建目录；若一个用户都没有且配置了 PASSWORD，
- * 就用它建一个 admin —— 让老部署升级后不用额外操作、也不会锁死自己。
+ * 首次初始化：只负责把数据目录建好。
+ *
+ * 这里**不再**用 PASSWORD 自动创建 admin —— 账号统一由网页上的初始化弹窗创建
+ * （POST /api/setup），部署者不用为了建个号去改环境变量、重启容器。
+ * PASSWORD 的用途收敛成一道可选的闸门：配了它，初始化时必须先填对，
+ * 避免站点刚上线就被公网上的陌生人抢注成管理员（见 /api/setup）。
  */
 async function initOnce(): Promise<void> {
   await fs.mkdir(path.join(dataDir(), 'user-data'), { recursive: true });
-  const { users } = await readJson<UsersFile>(usersPath(), { users: [] });
-  if (users.length > 0) return;
-  const password = process.env.PASSWORD || '';
-  if (!password) return;
-  const admin = makeUser('admin', password, 'admin');
-  await writeJson(usersPath(), { users: [admin] });
-  console.log('[zobby] 已用 PASSWORD 初始化管理员账号：admin（请登录后尽快改密码）');
 }
 
 export function ensureStore(): Promise<void> {
@@ -189,6 +186,18 @@ export async function findUserById(id: string): Promise<PublicUser | null> {
   return user ? toPublic(user) : null;
 }
 
+/**
+ * 只有一个账号时返回它的用户名，否则 null。
+ *
+ * 用来兼容「老用户只记得密码」的登录习惯：单账号站点上不必输入用户名。
+ * 但不能硬编码成 admin —— 管理员可能叫 zobby、老公、whatever，
+ * 硬编码会让唯一那条登录路径直接走不通。
+ */
+export async function getSoleUsername(): Promise<string | null> {
+  const users = await readUsers();
+  return users.length === 1 ? users[0].username : null;
+}
+
 // —— 登录 ——
 
 export async function authenticate(
@@ -213,6 +222,31 @@ export interface RegisterResult {
   ok: boolean;
   error?: string;
   user?: PublicUser;
+}
+
+/**
+ * 网页初始化：创建本站第一个管理员账号。
+ *
+ * 只在「一个用户都没有」时生效——放进写队列里判断，避免两个人同时提交
+ * 都能通过 `users.length === 0` 的检查，最后建出两个管理员。
+ */
+export async function createFirstAdmin(input: {
+  username: string;
+  password: string;
+}): Promise<RegisterResult> {
+  const nameErr = validateUsername(input.username);
+  if (nameErr) return { ok: false, error: nameErr };
+  const pwErr = validatePassword(input.password);
+  if (pwErr) return { ok: false, error: pwErr };
+
+  return serialize(async () => {
+    const users = await readUsers();
+    if (users.length > 0) return { ok: false, error: '站点已完成初始化，请直接登录' };
+    const admin = makeUser(input.username, input.password, 'admin');
+    users.push(admin);
+    await writeUsers(users);
+    return { ok: true, user: toPublic(admin) };
+  });
 }
 
 export async function registerWithInvite(input: {
