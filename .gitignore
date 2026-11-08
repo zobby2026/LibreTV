@@ -1,0 +1,17 @@
+node_modules/
+.next/
+out/
+.env
+.env*.local
+*.tsbuildinfo
+vitest-results.json
+*.log
+
+# 运行时用户数据（账号、邀请码、个人数据、会话密钥）：必须挂卷，不能入库
+data/
+
+# AI 工具产物（本机会话/缓存数据，不入库）
+.mimosa/
+.zcode/
+.codebuddy/
+generated-images/

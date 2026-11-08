@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="zobby的影视库">
+  <defs>
+    <linearGradient id="gold" x1="4" y1="2" x2="28" y2="30" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f8e7bf"/>
+      <stop offset="0.42" stop-color="#dba64a"/>
+      <stop offset="1" stop-color="#b07d26"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="9" fill="url(#gold)"/>
+  <rect x="0.6" y="0.6" width="30.8" height="30.8" rx="8.5" fill="none" stroke="#000" stroke-opacity="0.18" stroke-width="1.2"/>
+  <path d="M10 10.9h12L10 21.1h12" fill="none" stroke="#15100a" stroke-width="3.1" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
