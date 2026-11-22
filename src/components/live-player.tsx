@@ -365,7 +365,8 @@ export function LivePlayer({ url, title, onPrevChannel, onNextChannel, volumeBoo
         'webkit-playsinline': 'true',
         'x-webkit-airplay': 'allow',
         airplay: 'allow',
-      },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any,
       customType: {
         m3u8: (video: HTMLVideoElement) => {
           if (video.canPlayType('application/vnd.apple.mpegurl')) {

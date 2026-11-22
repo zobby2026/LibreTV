@@ -638,7 +638,8 @@ export function PlayerShell({
         'webkit-playsinline': 'true',
         'x-webkit-airplay': 'allow',
         airplay: 'allow',
-      },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any,
       // 上/下集放在播放键右侧：换集是看剧最高频的动作，不该让用户滚回页面下方找按钮
       controls: [
         {
