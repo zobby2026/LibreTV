@@ -305,29 +305,57 @@ export function LivePlayer({ url, title, onPrevChannel, onNextChannel, volumeBoo
       index: 20,
       position: 'right',
       html: '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><line x1="2" y1="20" x2="2.01" y2="20"/></svg>',
-      tooltip: '投屏 / 复制直播流地址',
+      tooltip: '投屏 (AirPlay / Cast)',
       click: () => {
         const video = (art.video || containerRef.current?.querySelector('video')) as any;
         const mediaUrl = url;
         if (mediaUrl && navigator.clipboard) {
           navigator.clipboard.writeText(mediaUrl).catch(() => {});
         }
+
+        let triggered = false;
+
+        // 1. Chrome / Edge 原生 Cast 弹窗 (W3C Presentation API)
+        if (typeof (window as any).PresentationRequest === 'function') {
+          try {
+            const pRequest = new (window as any).PresentationRequest([
+              'cast:CC1AD845',
+              'cast:07AEE832',
+              'cast:233637DE',
+            ]);
+            pRequest.start().then(() => {
+              showHint('已成功连接到投屏设备');
+            }).catch(() => {});
+            triggered = true;
+          } catch {}
+        }
+
+        // 2. 苹果 Safari / iOS 系统级 AirPlay 弹窗
         if (video && typeof video.webkitShowPlaybackTargetPicker === 'function') {
           try {
             video.webkitShowPlaybackTargetPicker();
+            triggered = true;
             showHint('正在拉起 AirPlay（直播流已复制）');
             return;
           } catch {}
         }
+
+        // 3. Android / W3C Remote Playback API
         if (video && video.remote && typeof video.remote.prompt === 'function') {
-          video.remote.prompt().then(() => {
-            showHint('正在投屏中...');
-          }).catch(() => {
-            showHint('直播流已复制剪贴板，可在电视或投屏App中播放');
-          });
-          return;
+          try {
+            video.remote.prompt().then(() => {
+              showHint('正在投屏中...');
+            }).catch(() => {});
+            triggered = true;
+            return;
+          } catch {}
         }
-        showHint('直播流已复制剪贴板！电脑请右键画面选择“投放”');
+
+        if (triggered) {
+          showHint('正在唤起系统投屏（直链已复制剪贴板）');
+        } else {
+          showHint('直播流已复制剪贴板！电脑请右键画面选择“投放”');
+        }
       },
     });
     // 触屏没有 hover，原生 3 秒自动隐藏会让直播控制栏（上一台/下一台）点不到
@@ -359,7 +387,12 @@ export function LivePlayer({ url, title, onPrevChannel, onNextChannel, volumeBoo
       theme: '#2563eb',
       controls,
       lang: navigator.language.toLowerCase().startsWith('zh') ? 'zh-cn' : 'en',
-      moreVideoAttr: { playsInline: true },
+      moreVideoAttr: {
+        playsInline: true,
+        'webkit-playsinline': 'true',
+        'x-webkit-airplay': 'allow',
+        airplay: 'allow',
+      },
       customType: {
         m3u8: (video: HTMLVideoElement) => {
           setupHls(video, url, 'direct');
@@ -373,6 +406,12 @@ export function LivePlayer({ url, title, onPrevChannel, onNextChannel, volumeBoo
       },
     });
     artRef.current = art;
+
+    // 激活 Safari AirPlay 局域网广播探测
+    try {
+      art.video?.addEventListener?.('webkitplaybacktargetavailabilitychanged', () => {});
+    } catch {}
+
     art.on('video:loadedmetadata', () => {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
