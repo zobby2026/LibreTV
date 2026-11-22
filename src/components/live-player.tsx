@@ -7,6 +7,11 @@ import { Spinner } from './states';
 import { prefersTouchPointer } from '@/lib/touch-pointer';
 import { ART_DEFAULT_CONTROL_HIDE_MS, TOUCH_CONTROL_HIDE_MS } from '@/lib/control-hide';
 import { attachVolumeBoost, type VolumeBoostHandle } from '@/lib/volume-boost';
+import {
+  createWakeLockController,
+  preloadGoogleCastSdk,
+  triggerSystemCast,
+} from '@/lib/cast';
 
 /**
  * 直播播放器：与点播 player-shell 完全独立。
@@ -139,6 +144,15 @@ export function LivePlayer({ url, title, onPrevChannel, onNextChannel, volumeBoo
         if (allowProxyFallback && !mediaUrl.startsWith(STREAM_PROXY_PREFIX)) {
           showHint('直连失败，改用代理重试...');
           setupNative(video, proxyUrl(url), false, failMessage);
+          return;
+        }
+        const isApple =
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          typeof (video as any).webkitShowPlaybackTargetPicker === 'function' ||
+          /iPad|iPhone|iPod|Macintosh/i.test(navigator.userAgent);
+        if (!isApple && engineOf(url) === 'hls' && Hls.isSupported()) {
+          showHint('原生播放失败，切换兼容模式...');
+          setupHls(video, url, 'direct');
           return;
         }
         setError(failMessage || '该地址不是可播放的直播流（内容可能是文件或错误提示）');
@@ -307,55 +321,14 @@ export function LivePlayer({ url, title, onPrevChannel, onNextChannel, volumeBoo
       html: '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><line x1="2" y1="20" x2="2.01" y2="20"/></svg>',
       tooltip: '投屏 (AirPlay / Cast)',
       click: () => {
-        const video = (art.video || containerRef.current?.querySelector('video')) as any;
-        const mediaUrl = url;
-        if (mediaUrl && navigator.clipboard) {
-          navigator.clipboard.writeText(mediaUrl).catch(() => {});
-        }
-
-        let triggered = false;
-
-        // 1. Chrome / Edge 原生 Cast 弹窗 (W3C Presentation API)
-        if (typeof (window as any).PresentationRequest === 'function') {
-          try {
-            const pRequest = new (window as any).PresentationRequest([
-              'cast:CC1AD845',
-              'cast:07AEE832',
-              'cast:233637DE',
-            ]);
-            pRequest.start().then(() => {
-              showHint('已成功连接到投屏设备');
-            }).catch(() => {});
-            triggered = true;
-          } catch {}
-        }
-
-        // 2. 苹果 Safari / iOS 系统级 AirPlay 弹窗
-        if (video && typeof video.webkitShowPlaybackTargetPicker === 'function') {
-          try {
-            video.webkitShowPlaybackTargetPicker();
-            triggered = true;
-            showHint('正在拉起 AirPlay（直播流已复制）');
-            return;
-          } catch {}
-        }
-
-        // 3. Android / W3C Remote Playback API
-        if (video && video.remote && typeof video.remote.prompt === 'function') {
-          try {
-            video.remote.prompt().then(() => {
-              showHint('正在投屏中...');
-            }).catch(() => {});
-            triggered = true;
-            return;
-          } catch {}
-        }
-
-        if (triggered) {
-          showHint('正在唤起系统投屏（直链已复制剪贴板）');
-        } else {
-          showHint('直播流已复制剪贴板！电脑请右键画面选择“投放”');
-        }
+        const video = (art.video || containerRef.current?.querySelector('video')) as HTMLVideoElement | null;
+        void triggerSystemCast({
+          video,
+          url,
+          title,
+          isLive: true,
+          onHint: showHint,
+        });
       },
     });
     // 触屏没有 hover，原生 3 秒自动隐藏会让直播控制栏（上一台/下一台）点不到
@@ -395,7 +368,11 @@ export function LivePlayer({ url, title, onPrevChannel, onNextChannel, volumeBoo
       },
       customType: {
         m3u8: (video: HTMLVideoElement) => {
-          setupHls(video, url, 'direct');
+          if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            setupNative(video, url, true);
+          } else {
+            setupHls(video, url, 'direct');
+          }
         },
         flv: (video: HTMLVideoElement) => {
           void setupFlv(video, url, true);
@@ -407,10 +384,15 @@ export function LivePlayer({ url, title, onPrevChannel, onNextChannel, volumeBoo
     });
     artRef.current = art;
 
-    // 激活 Safari AirPlay 局域网广播探测
+    // 激活 Safari AirPlay 局域网广播探测并预加载 Google Cast SDK
     try {
       art.video?.addEventListener?.('webkitplaybacktargetavailabilitychanged', () => {});
     } catch {}
+    void preloadGoogleCastSdk();
+
+    const wakeLock = createWakeLockController(
+      () => Boolean(artRef.current?.video && !artRef.current.video.paused && !artRef.current.video.ended)
+    );
 
     art.on('video:loadedmetadata', () => {
       try {
@@ -419,6 +401,7 @@ export function LivePlayer({ url, title, onPrevChannel, onNextChannel, volumeBoo
       } catch { /* 忽略 */ }
     });
     art.on('video:playing', () => {
+      wakeLock.acquire();
       playbackStarted = true;
       setLoading(false);
       setShowPoster(false);
@@ -428,6 +411,12 @@ export function LivePlayer({ url, title, onPrevChannel, onNextChannel, volumeBoo
       if (volumeBoostSettingRef.current && !volumeBoostRef.current) {
         volumeBoostRef.current = attachVolumeBoost(art.video);
       }
+    });
+    art.on('video:pause', () => {
+      wakeLock.release();
+    });
+    art.on('video:ended', () => {
+      wakeLock.release();
     });
     art.on('video:error', () => {
       // mpegts 走自身 ERROR 事件；这里兜底其它未知错误
@@ -452,6 +441,7 @@ export function LivePlayer({ url, title, onPrevChannel, onNextChannel, volumeBoo
       disposed = true;
       clearTimeout(startTimer);
       if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
+      wakeLock.dispose();
       cleanupEngines();
       volumeBoostRef.current?.dispose();
       volumeBoostRef.current = null;

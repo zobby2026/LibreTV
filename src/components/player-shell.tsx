@@ -29,6 +29,11 @@ import {
   DESKTOP_CONTROL_HIDE_MS,
   TOUCH_CONTROL_HIDE_MS,
 } from '@/lib/control-hide';
+import {
+  createWakeLockController,
+  preloadGoogleCastSdk,
+  triggerSystemCast,
+} from '@/lib/cast';
 
 /** 片段时间统一保留 1 位小数：与面板展示保持一致，避免浮点尾巴 */
 const round1 = (v: number) => Math.round(v * 10) / 10;
@@ -347,6 +352,90 @@ export function PlayerShell({
     propsRef.current.onEnded?.();
   };
 
+  const isAppleDevice = (video?: HTMLVideoElement | null) =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    typeof (video as any)?.webkitShowPlaybackTargetPicker === 'function' ||
+    /iPad|iPhone|iPod|Macintosh/i.test(navigator.userAgent);
+
+  /**
+   * 检测是否为支持原生 HLS 的 Apple 或 Android 设备。
+   * 原生播放能使 video.src 保持为真实 HTTP/HTTPS 远程直链，避免 hls.js 的 blob: 伪协议导致
+   * Safari AirPlay 与 Android Remote Playback 系统投屏弹窗失效。
+   */
+  const canUseNativeHls = (video?: HTMLVideoElement | null) => {
+    if (!video) return false;
+    const isApple = isAppleDevice(video);
+    const isAndroid = /Android/i.test(navigator.userAgent);
+    return (isApple || isAndroid) && Boolean(video.canPlayType('application/vnd.apple.mpegurl'));
+  };
+
+  /**
+   * 原生 HLS 播放（针对 Safari / iOS / Android）：
+   * 不通过 hls.js 解封装，直接赋给 video.src，激活系统级 AirPlay / Remote Playback 投屏。
+   */
+  const setupNative = (video: HTMLVideoElement, mediaUrl: string, allowProxyFallback: boolean) => {
+    restoreCleanupRef.current?.();
+    restoreCleanupRef.current = null;
+    hlsRef.current?.destroy();
+    hlsRef.current = null;
+    currentMediaUrlRef.current = mediaUrl;
+
+    let restoreInFlight = false;
+    const restoreAndStart = async () => {
+      if (restoredRef.current || restoreInFlight) return;
+      const duration = artRef.current?.duration || video.duration || 0;
+      if (!Number.isFinite(duration) || duration <= 0) return;
+
+      restoreInFlight = true;
+      try {
+        const saved = (await propsRef.current.getRestorePosition?.()) ?? 0;
+        const currentDuration = artRef.current?.duration || video.duration || duration;
+        let prefetchAnchor = video.currentTime;
+        if (saved > 10 && Number.isFinite(currentDuration) && saved < currentDuration - 2) {
+          if (artRef.current) artRef.current.currentTime = saved;
+          prefetchAnchor = saved;
+          showHint(`已从 ${formatTime(saved)} 继续播放`);
+        }
+        restoredRef.current = true;
+        restoreCleanupRef.current?.();
+        restoreCleanupRef.current = null;
+        ensurePrefetch(mediaUrl, prefetchAnchor);
+        video.play().catch(() => {});
+      } catch {
+      } finally {
+        restoreInFlight = false;
+      }
+    };
+
+    const restoreEvents = ['loadedmetadata', 'durationchange', 'canplay'] as const;
+    const onRestoreEvent = () => { void restoreAndStart(); };
+    restoreEvents.forEach((event) => video.addEventListener(event, onRestoreEvent));
+
+    const onError = () => {
+      video.removeEventListener('error', onError);
+      if (allowProxyFallback && !mediaUrl.startsWith('/api/proxy')) {
+        showHint('直连失败，改用代理重试...');
+        setupNative(video, `/api/proxy?url=${encodeURIComponent(mediaUrl)}`, false);
+      } else if (!isAppleDevice(video) && Hls.isSupported()) {
+        // 部分安卓浏览器对 canPlayType 返回 maybe 但无法硬解特定流，回退到 hls.js
+        showHint('原生播放失败，切换兼容模式...');
+        setupHls(video, propsRef.current.url, true);
+      } else {
+        setError('视频加载失败，请尝试其他视频源');
+      }
+    };
+    video.addEventListener('error', onError);
+
+    restoreCleanupRef.current = () => {
+      restoreEvents.forEach((event) => video.removeEventListener(event, onRestoreEvent));
+      video.removeEventListener('error', onError);
+    };
+
+    video.src = mediaUrl;
+    video.load();
+    video.play().catch(() => {});
+  };
+
   /**
    * 初始化/切换 HLS。allowProxyFallback：直连致命网络错误（CORS/防盗链/分片被拒）时，
    * 自动改走同源 cookie 鉴权的 /api/proxy 重试一次。
@@ -492,7 +581,11 @@ export function PlayerShell({
     setShowPoster(true);
     const art = artRef.current;
     if (!art) return;
-    setupHls(art.video, targetUrl, true);
+    if (canUseNativeHls(art.video)) {
+      setupNative(art.video, targetUrl, true);
+    } else {
+      setupHls(art.video, targetUrl, true);
+    }
   };
 
   // —— 创建播放器（仅一次，挂载即创建） ——
@@ -541,7 +634,6 @@ export function PlayerShell({
       theme: '#2563eb',
       lang: navigator.language.toLowerCase().startsWith('zh') ? 'zh-cn' : 'en',
       moreVideoAttr: {
-        crossOrigin: 'anonymous',
         playsInline: true,
         'webkit-playsinline': 'true',
         'x-webkit-airplay': 'allow',
@@ -576,70 +668,40 @@ export function PlayerShell({
           html: '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><line x1="2" y1="20" x2="2.01" y2="20"/></svg>',
           tooltip: '投屏 (AirPlay / Cast)',
           click: () => {
-            const video = (art.video || containerRef.current?.querySelector('video')) as any;
+            const video = (art.video || containerRef.current?.querySelector('video')) as HTMLVideoElement | null;
             const mediaUrl = currentMediaUrlRef.current || propsRef.current.url;
-            if (mediaUrl && navigator.clipboard) {
-              navigator.clipboard.writeText(mediaUrl).catch(() => {});
-            }
-
-            let triggered = false;
-
-            // 1. Chrome / Edge 原生 Cast 弹窗 (W3C Presentation API)
-            if (typeof (window as any).PresentationRequest === 'function') {
-              try {
-                const pRequest = new (window as any).PresentationRequest([
-                  'cast:CC1AD845',
-                  'cast:07AEE832',
-                  'cast:233637DE',
-                ]);
-                pRequest.start().then(() => {
-                  showHint('已成功连接到投屏设备');
-                }).catch(() => {});
-                triggered = true;
-              } catch {}
-            }
-
-            // 2. 苹果 Safari / iOS 系统级 AirPlay 弹窗
-            if (video && typeof video.webkitShowPlaybackTargetPicker === 'function') {
-              try {
-                video.webkitShowPlaybackTargetPicker();
-                triggered = true;
-                showHint('正在拉起 AirPlay（视频直链已复制）');
-                return;
-              } catch {}
-            }
-
-            // 3. Android / W3C Remote Playback API
-            if (video && video.remote && typeof video.remote.prompt === 'function') {
-              try {
-                video.remote.prompt().then(() => {
-                  showHint('正在投屏中...');
-                }).catch(() => {});
-                triggered = true;
-                return;
-              } catch {}
-            }
-
-            if (triggered) {
-              showHint('正在唤起系统投屏（直链已复制剪贴板）');
-            } else {
-              showHint('直链已复制剪贴板！电脑请右键画面选择“投放”');
-            }
+            void triggerSystemCast({
+              video,
+              url: mediaUrl,
+              title: propsRef.current.title,
+              currentTime: art.currentTime || 0,
+              isLive: false,
+              onHint: showHint,
+            });
           },
         },
       ],
       customType: {
         m3u8: (video: HTMLVideoElement, mediaUrl: string) => {
-          setupHls(video, mediaUrl, true);
+          if (canUseNativeHls(video)) {
+            setupNative(video, mediaUrl, true);
+          } else {
+            setupHls(video, mediaUrl, true);
+          }
         },
       },
     });
     artRef.current = art;
 
-    // 激活 Safari AirPlay 局域网广播探测
+    // 激活 Safari AirPlay 局域网广播探测并预加载 Google Cast SDK
     try {
       art.video?.addEventListener?.('webkitplaybacktargetavailabilitychanged', () => {});
     } catch {}
+    void preloadGoogleCastSdk();
+
+    const wakeLock = createWakeLockController(
+      () => Boolean(artRef.current?.video && !artRef.current.video.paused && !artRef.current.video.ended)
+    );
 
     // 音量放大：起播后（src 已就绪）才挂 Web Audio 增益图，避免空 src / CORS 误判。
     // 默认关闭（设置项 volumeBoost）：不接入时完全不碰音频链路。
@@ -732,6 +794,7 @@ export function PlayerShell({
     });
 
     art.on('video:playing', () => {
+      wakeLock.acquire();
       playbackStartedRef.current = true;
       setShowPoster(false);
       // 仅在媒体真正恢复（有分片进入 buffer）后清错误遮罩：
@@ -826,6 +889,7 @@ export function PlayerShell({
       updateSkipPrompt(prompt);
     });
     art.on('video:pause', () => {
+      wakeLock.release();
       // 跳过片尾会主动 pause：此时已按「看完」处理，不能再把片尾位置写回进度
       if (!endedRef.current) propsRef.current.onPause?.(art.currentTime, art.duration);
       // 暂停 = 预取黄金窗口：解除限速并无限铺满整集（用户主动行为，带宽占用可接受）
@@ -841,6 +905,7 @@ export function PlayerShell({
       getVideoPrefetcher().setThrottled(false);
     });
     art.on('video:ended', () => {
+      wakeLock.release();
       // finishBySkip 已经手动走过结束链路：这里不能重复触发 onEnded
       if (endedRef.current) return;
       endedRef.current = true;
@@ -1002,6 +1067,7 @@ export function PlayerShell({
       }
       document.removeEventListener('keydown', shortcuts);
       document.removeEventListener('visibilitychange', saveOnHide);
+      wakeLock.dispose();
       volumeBoostRef.current?.dispose();
       volumeBoostRef.current = null;
       if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
