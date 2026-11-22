@@ -1,0 +1,30 @@
+import { NextResponse } from 'next/server';
+
+const SOURCE_LIST = {
+  name: "我的专属精选源",
+  version: 2,
+  sources: [
+    { name: "非凡蓝光", url: "http://cj.ffzyapi.com/api.php/provide/vod" },
+    { name: "量子高清", url: "https://cj.lziapi.com/api.php/provide/vod" },
+    { name: "红牛极速", url: "https://www.hongniuzy2.com/api.php/provide/vod" },
+    { name: "索尼影视", url: "https://suoniapi.com/api.php/provide/vod" },
+    { name: "卧龙秒播", url: "https://collect.wolongzyw.com/api.php/provide/vod" }
+  ],
+  liveSources: [
+    {
+      name: "央视卫视高清",
+      url: "https://live.fanmingming.com/tv/m3u/ipv4.m3u",
+      epg: "https://live.fanmingming.com/e.xml"
+    }
+  ]
+};
+
+export async function GET() {
+  return NextResponse.json(SOURCE_LIST, {
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Cache-Control': 'public, max-age=600, s-maxage=3600',
+    },
+  });
+}

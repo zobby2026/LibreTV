@@ -563,6 +563,28 @@ export function PlayerShell({
             if (propsRef.current.hasNextEpisode) propsRef.current.onNextEpisode?.();
           },
         },
+        {
+          name: 'cast-screen',
+          index: 20,
+          position: 'right',
+          html: '<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><line x1="2" y1="20" x2="2.01" y2="20"/></svg>',
+          tooltip: '投屏',
+          click: (artInstance: any) => {
+            const video = (artInstance?.video || artRef.current?.video) as any;
+            if (!video) return;
+            if (typeof video.webkitShowPlaybackTargetPicker === 'function') {
+              video.webkitShowPlaybackTargetPicker();
+            } else if (video.remote && typeof video.remote.prompt === 'function') {
+              video.remote.prompt().catch((err: any) => {
+                if (err && err.name !== 'AbortError') {
+                  artInstance.notice.show = '未检测到投屏设备或投屏已取消';
+                }
+              });
+            } else {
+              artInstance.notice.show = '当前浏览器未开放投屏 API，请右键画面选择“投放”';
+            }
+          },
+        },
       ],
       customType: {
         m3u8: (video: HTMLVideoElement, mediaUrl: string) => {
