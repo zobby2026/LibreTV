@@ -35,6 +35,10 @@ import {
   triggerSystemCast,
 } from '@/lib/cast';
 
+/** 自定义播放倍速选项 */
+const PLAYBACK_RATES = [0.75, 1.0, 1.5, 1.75, 2.0, 2.5, 3.0];
+const DEFAULT_PLAYBACK_RATES = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
 /** 片段时间统一保留 1 位小数：与面板展示保持一致，避免浮点尾巴 */
 const round1 = (v: number) => Math.round(v * 10) / 10;
 
@@ -597,6 +601,7 @@ export function PlayerShell({
     // 由「点按视频 toggle」收起。CONTROL_HIDE_TIME 是 static，创建后修改立即生效。
     const touchPointer = prefersTouchPointer();
     Artplayer.CONTROL_HIDE_TIME = touchPointer ? TOUCH_CONTROL_HIDE_MS : DESKTOP_CONTROL_HIDE_MS;
+    Artplayer.PLAYBACK_RATE = PLAYBACK_RATES;
 
     // 初始化每集状态
     mediaHealthyRef.current = true;
@@ -1085,6 +1090,7 @@ export function PlayerShell({
       restoreCleanupRef.current?.();
       restoreCleanupRef.current = null;
       Artplayer.CONTROL_HIDE_TIME = ART_DEFAULT_CONTROL_HIDE_MS;
+      Artplayer.PLAYBACK_RATE = DEFAULT_PLAYBACK_RATES;
       hlsRef.current?.destroy();
       hlsRef.current = null;
       recoveryRef.current?.dispose();
