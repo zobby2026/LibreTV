@@ -6,7 +6,7 @@ import { api } from '@/lib/client-api';
 import { catalog, type CatalogItem } from '@/lib/catalog';
 import { clearAllHistory } from '@/lib/db';
 import { isInDisabledSubscription, isSourceDisabled, resolveSource, useAppStore } from '@/lib/store';
-import { buildWatchUrl, validateSourceUrl } from '@/lib/utils';
+import { buildWatchUrl, cn, validateSourceUrl } from '@/lib/utils';
 import { ContinueWatching } from './continue-watching';
 import { DecisionCard, type DecisionCardData } from './decision-card';
 import { SourceManagerDrawer } from './source-manager';
@@ -563,7 +563,10 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
       <SourceManagerDrawer open={sourceOpen} onClose={() => setSourceOpen(false)} />
 
       {!searchOpen && !active && !fullBoard && (
-        <nav className="glass fixed bottom-0 left-1/2 z-30 w-full max-w-[480px] -translate-x-1/2 border-x-0 border-b-0 border-t border-white/10" style={{ paddingBottom: 'calc(8px + env(safe-area-inset-bottom))' }}>
+        <nav
+          className="fixed bottom-0 left-1/2 z-30 w-full max-w-[480px] -translate-x-1/2 border-t border-white/[0.08] bg-[#090a0d]/96 backdrop-blur-2xl shadow-[0_-8px_32px_rgba(0,0,0,0.85)]"
+          style={{ paddingBottom: 'calc(8px + env(safe-area-inset-bottom))' }}
+        >
           <div className="grid grid-cols-4 pt-2">
             <DockButton label="影展" active={tab === 'home'} onClick={() => setTab('home')} icon="spark" />
             <DockButton label="片库" active={tab === 'library'} onClick={() => setTab('library')} icon="grid" />
@@ -578,12 +581,28 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
 
 function DockButton({ label, active, onClick, icon }: { label: string; active: boolean; onClick: () => void; icon: 'spark' | 'grid' | 'live' | 'gear' }) {
   return (
-    <button type="button" onClick={onClick} className="flex flex-col items-center gap-1 py-1" style={{ color: active ? 'var(--a)' : 'rgba(243,239,230,.5)' }}>
-      {icon === 'spark' && <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24"><path d="M12 3l2.5 5.5L20 11l-5.5 2.5L12 19l-2.5-5.5L4 11l5.5-2.5L12 3z" /></svg>}
-      {icon === 'grid' && <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>}
-      {icon === 'live' && <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M17 2l-5 5-5-5" /></svg>}
-      {icon === 'gear' && <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" /></svg>}
-      <span className="text-[10px]">{label}</span>
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'relative flex flex-col items-center gap-1.5 py-1.5 transition-all active:scale-95',
+        active ? 'text-[var(--a)]' : 'text-[#a8a59d] hover:text-[#f3efe6]'
+      )}
+    >
+      {active && (
+        <span
+          aria-hidden
+          className="absolute -top-2 h-0.5 w-6 rounded-full"
+          style={{ background: 'var(--a)', boxShadow: '0 0 8px var(--a)' }}
+        />
+      )}
+      {icon === 'spark' && <svg className="h-[21px] w-[21px]" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M12 3l2.5 5.5L20 11l-5.5 2.5L12 19l-2.5-5.5L4 11l5.5-2.5L12 3z" /></svg>}
+      {icon === 'grid' && <svg className="h-[21px] w-[21px]" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>}
+      {icon === 'live' && <svg className="h-[21px] w-[21px]" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M17 2l-5 5-5-5" /></svg>}
+      {icon === 'gear' && <svg className="h-[21px] w-[21px]" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" /></svg>}
+      <span className={cn('text-[11px] leading-none tracking-tight', active ? 'font-semibold' : 'font-medium')}>
+        {label}
+      </span>
     </button>
   );
 }
