@@ -122,7 +122,9 @@ export function AiConfigDialog({ open, onClose }: { open: boolean; onClose: () =
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/20 lg:hidden" />
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-lg">🤖</span>
+            <svg className="h-4 w-4 shrink-0" style={{ color: 'var(--a)' }} fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2L12 3z" />
+            </svg>
             <h3 className="font-serif text-base font-bold text-[#f3efe6]">AI 策展大模型配置</h3>
           </div>
           <button type="button" onClick={onClose} className="text-xs text-white/50 hover:text-white">
@@ -131,13 +133,15 @@ export function AiConfigDialog({ open, onClose }: { open: boolean; onClose: () =
         </div>
 
         {/* 当前状态指示 */}
-        <div className="mb-4 flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.04] p-3 text-xs">
+        <div className="mb-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] p-3.5 text-xs">
           <div>
-            <div className="flex items-center gap-1.5 font-medium">
+            <div className="flex items-center gap-1.5 font-medium text-[#f3efe6]">
               <span
-                className={`h-2 w-2 rounded-full ${
-                  status?.enabled ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]' : 'bg-amber-400'
-                }`}
+                className="h-2 w-2 rounded-full"
+                style={{
+                  background: status?.enabled ? '#34d399' : 'var(--a)',
+                  boxShadow: status?.enabled ? '0 0 8px rgba(52,211,153,0.6)' : '0 0 8px var(--a)',
+                }}
               />
               <span>{status?.enabled ? 'AI 大模型已接入' : '未连接大模型（走本地精选）'}</span>
             </div>
@@ -148,7 +152,7 @@ export function AiConfigDialog({ open, onClose }: { open: boolean; onClose: () =
             </div>
           </div>
           {status?.maskedKey && (
-            <span className="rounded bg-white/10 px-2 py-0.5 font-mono text-[10px] text-white/70">
+            <span className="rounded-lg bg-white/10 px-2 py-0.5 font-mono text-[10px] text-white/70">
               {status.maskedKey}
             </span>
           )}
@@ -159,39 +163,28 @@ export function AiConfigDialog({ open, onClose }: { open: boolean; onClose: () =
           <div>
             <label className="mb-1.5 block font-medium text-white/70">选择大模型平台</label>
             <div className="grid grid-cols-3 gap-1.5">
-              <button
-                type="button"
-                onClick={() => selectProvider('deepseek')}
-                className={`rounded-xl border py-2 text-center transition ${
-                  provider === 'deepseek'
-                    ? 'border-amber-400/50 bg-amber-400/15 font-semibold text-amber-300'
-                    : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
-                }`}
-              >
-                DeepSeek
-              </button>
-              <button
-                type="button"
-                onClick={() => selectProvider('github')}
-                className={`rounded-xl border py-2 text-center transition ${
-                  provider === 'github'
-                    ? 'border-amber-400/50 bg-amber-400/15 font-semibold text-amber-300'
-                    : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
-                }`}
-              >
-                GitHub Models
-              </button>
-              <button
-                type="button"
-                onClick={() => selectProvider('custom')}
-                className={`rounded-xl border py-2 text-center transition ${
-                  provider === 'custom'
-                    ? 'border-amber-400/50 bg-amber-400/15 font-semibold text-amber-300'
-                    : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
-                }`}
-              >
-                自定义兼容
-              </button>
+              {([
+                { id: 'deepseek', label: 'DeepSeek' },
+                { id: 'github', label: 'GitHub Models' },
+                { id: 'custom', label: '自定义兼容' },
+              ] as const).map((item) => {
+                const active = provider === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => selectProvider(item.id)}
+                    className={`rounded-xl border py-2 text-center transition ${
+                      active
+                        ? 'font-semibold text-[#08090b]'
+                        : 'border-white/10 bg-white/[0.04] text-white/75 hover:bg-white/10'
+                    }`}
+                    style={active ? { background: 'var(--a)', borderColor: 'var(--a)' } : undefined}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -203,7 +196,7 @@ export function AiConfigDialog({ open, onClose }: { open: boolean; onClose: () =
               onChange={(e) => setBaseUrl(e.target.value)}
               placeholder="https://api.deepseek.com/v1"
               required
-              className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 font-mono text-xs text-white focus:border-amber-400/60 focus:outline-none"
+              className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 font-mono text-xs text-white focus:border-white/35 focus:outline-none"
             />
           </div>
 
@@ -215,7 +208,7 @@ export function AiConfigDialog({ open, onClose }: { open: boolean; onClose: () =
               onChange={(e) => setModel(e.target.value)}
               placeholder="deepseek-chat 或 openai/gpt-4o-mini"
               required
-              className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 font-mono text-xs text-white focus:border-amber-400/60 focus:outline-none"
+              className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 font-mono text-xs text-white focus:border-white/35 focus:outline-none"
             />
           </div>
 
@@ -226,7 +219,7 @@ export function AiConfigDialog({ open, onClose }: { open: boolean; onClose: () =
               <button
                 type="button"
                 onClick={() => setShowKey(!showKey)}
-                className="font-mono text-[10px] text-white/40 hover:text-white"
+                className="font-mono text-[10px] text-white/45 hover:text-white"
               >
                 {showKey ? '隐藏' : '显示'}
               </button>

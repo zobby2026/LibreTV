@@ -173,6 +173,7 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
   const longPressed = useRef(false);
 
   const defaultPreset = useMemo(() => matchCuratePreset(''), []);
+  const [scrolled, setScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [stageActive, setStageActive] = useState(false);
   const [searchStep, setSearchStep] = useState(-1);
@@ -216,6 +217,13 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
   useEffect(() => {
     document.documentElement.style.setProperty('--a', accent);
   }, [accent]);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 36);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -468,12 +476,18 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
     window.setTimeout(() => searchInputRef.current?.focus(), 60);
   };
 
+  const transparentDesktopHeader = tab === 'home' && !searchOpen && !scrolled;
+
   return (
     <div className="cinema-app relative min-h-screen pb-24 text-[#f3efe6] lg:pb-14">
-      <div id="glow" style={{ backgroundColor: accent }} />
-
-      {/* 桌面端顶部毛玻璃导航栏 */}
-      <header className="sticky top-0 z-30 hidden border-b border-white/10 bg-[#08090b]/80 backdrop-blur-2xl lg:block">
+      {/* 桌面端顶部导航栏：首页顶部时透明悬浮在海报上方，滚动后渐显深色毛玻璃 */}
+      <header
+        className={`fixed inset-x-0 top-0 z-30 hidden transition-all duration-300 lg:block ${
+          transparentDesktopHeader
+            ? 'border-b border-transparent bg-gradient-to-b from-[#08090b]/75 via-[#08090b]/35 to-transparent'
+            : 'border-b border-white/10 bg-[#08090b]/88 backdrop-blur-2xl'
+        }`}
+      >
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-6">
           <button
             type="button"
@@ -570,111 +584,123 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
         </div>
       </header>
 
-      <div className="relative z-10 mx-auto w-full max-w-7xl lg:px-6">
-        {tab === 'home' && (
-          <div>
-            {/* Hero 沉浸轮播：手机全屏，电脑宽屏圆角影院 */}
-            <section className="relative w-full overflow-hidden h-[calc(100svh-70px)] min-h-[520px] lg:mt-5 lg:h-[500px] lg:min-h-[460px] lg:rounded-3xl lg:border lg:border-white/10">
-              <div className="absolute left-3 right-3 top-3 z-30 flex gap-1 lg:left-6 lg:right-6 lg:top-5">
-                {hero.map((m, idx) => (
+      {/* 首页顶部通栏海报直接延伸到页面最上方，无顶部色块与顶部进度条 */}
+      {tab === 'home' && (
+        <section className="relative z-10 h-[calc(100svh-68px)] min-h-[540px] w-full overflow-hidden bg-[#08090b] lg:h-[580px] lg:min-h-[520px]">
+          {hero.length > 1 && (
+            <>
+              <button
+                type="button"
+                aria-label="上一部"
+                onClick={() => scrollHeroTo(heroIdx - 1)}
+                className="glass absolute left-6 top-1/2 z-30 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-lg text-white/80 backdrop-blur-md transition hover:bg-white/20 lg:flex"
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                aria-label="下一部"
+                onClick={() => scrollHeroTo(heroIdx + 1)}
+                className="glass absolute right-6 top-1/2 z-30 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-lg text-white/80 backdrop-blur-md transition hover:bg-white/20 lg:flex"
+              >
+                ›
+              </button>
+            </>
+          )}
+
+          <div
+            ref={railRef}
+            onScroll={onHeroScroll}
+            className="no-scrollbar flex h-full w-full snap-x snap-mandatory overflow-x-auto"
+          >
+            {hero.map((m, idx) => (
+              <div
+                key={m.id}
+                className="relative flex h-full w-full flex-shrink-0 snap-center flex-col justify-end bg-[#08090b]"
+              >
+                {(m.backdrop || m.poster) && (
+                  <CinemaImg
+                    src={toHeroMedia(m.backdrop || m.poster)}
+                    fetchPriority={idx === 0 ? 'high' : undefined}
+                    loading={idx === 0 ? 'eager' : 'lazy'}
+                    decoding="async"
+                    className="pointer-events-none absolute inset-0 h-full w-full object-cover object-top opacity-80"
+                  />
+                )}
+                {/* 仅保留底部融入背景的暗角渐变，顶部保持海报自然延伸不加色块 */}
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#08090b] via-[#08090b]/40 to-transparent lg:bg-[linear-gradient(90deg,rgba(8,9,11,0.86)_0%,rgba(8,9,11,0.38)_52%,rgba(8,9,11,0.12)_100%),linear-gradient(0deg,#08090b_0%,rgba(8,9,11,0.22)_38%,transparent_68%)]" />
+                <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-col justify-end px-5 pb-[108px] lg:flex-row lg:items-end lg:justify-between lg:px-14 lg:pb-14">
+                  <div className="max-w-xl">
+                    <div className="rank-stroke -mb-6 select-none font-mono">{idx + 1}</div>
+                    <div className="mb-1.5 flex items-center gap-2 font-mono text-xs">
+                      <span className="rounded border border-white/10 bg-black/50 px-2 py-0.5 text-[#ffd27a]">★ {m.r}</span>
+                      <span className="text-white/70">{m.d} · {m.ty}</span>
+                    </div>
+                    <h1 className="mb-2 font-serif text-[34px] font-bold leading-tight tracking-tight lg:text-5xl">{m.t}</h1>
+                    <p className="mb-5 line-clamp-2 font-mono text-xs leading-relaxed text-[#f3efe6]/85 lg:text-sm">AI ▸ {m.ai || m.w}</p>
+                    <div className="flex items-center gap-2.5">
+                      <button type="button" onClick={() => void openDetail(m)} className="rounded-full px-5 py-2 text-xs font-medium text-[#08090b] active:scale-95 lg:text-sm" style={{ background: 'var(--a)' }}>
+                        ▶ 找片源
+                      </button>
+                      <button type="button" onClick={() => openQuick(m)} className="glass rounded-full px-4 py-2 text-xs text-white/90 hover:bg-white/15 lg:text-sm">
+                        ✦ 30 秒决策卡
+                      </button>
+                    </div>
+                  </div>
+                  {m.poster && (
+                    <div className="relative z-10 hidden w-44 shrink-0 overflow-hidden rounded-2xl border border-white/15 shadow-2xl lg:block">
+                      <CinemaImg src={toListPoster(m.poster)} loading={idx === 0 ? 'eager' : 'lazy'} className="aspect-[2/3] w-full object-cover" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* 轮播小圆点进度：移动端位于搜索框正上方，桌面端位于海报底部居中 */}
+          {hero.length > 1 && (
+            <div className="absolute bottom-[68px] left-1/2 z-30 flex -translate-x-1/2 items-center gap-2 lg:bottom-5">
+              {hero.map((m, idx) => {
+                const activeDot = idx === heroIdx;
+                return (
                   <button
                     key={m.id}
                     type="button"
                     aria-label={`切换到第 ${idx + 1} 部`}
                     onClick={() => scrollHeroTo(idx)}
-                    className="h-[3px] flex-1 overflow-hidden rounded-full bg-white/20"
-                  >
-                    <div className="h-full transition-[width] duration-300" style={{ width: idx <= heroIdx ? '100%' : '0%', background: 'var(--a)' }} />
-                  </button>
-                ))}
-              </div>
-
-              {hero.length > 1 && (
-                <>
-                  <button
-                    type="button"
-                    aria-label="上一部"
-                    onClick={() => scrollHeroTo(heroIdx - 1)}
-                    className="glass absolute left-5 top-1/2 z-30 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-lg text-white/80 backdrop-blur-md transition hover:bg-white/20 lg:flex"
-                  >
-                    ‹
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="下一部"
-                    onClick={() => scrollHeroTo(heroIdx + 1)}
-                    className="glass absolute right-5 top-1/2 z-30 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-lg text-white/80 backdrop-blur-md transition hover:bg-white/20 lg:flex"
-                  >
-                    ›
-                  </button>
-                </>
-              )}
-
-              <div
-                ref={railRef}
-                onScroll={onHeroScroll}
-                className="no-scrollbar flex h-full w-full snap-x snap-mandatory overflow-x-auto"
-              >
-                {hero.map((m, idx) => (
-                  <div
-                    key={m.id}
-                    className="relative flex h-full w-full flex-shrink-0 snap-center flex-col justify-end px-5 pb-24 lg:flex-row lg:items-end lg:justify-between lg:px-16 lg:pb-12"
-                    style={{ background: `linear-gradient(180deg, ${m.a}33 0%, ${m.b} 100%)` }}
-                  >
-                    {(m.backdrop || m.poster) && (
-                      <CinemaImg
-                        src={toHeroMedia(m.backdrop || m.poster)}
-                        fetchPriority={idx === 0 ? 'high' : undefined}
-                        loading={idx === 0 ? 'eager' : 'lazy'}
-                        decoding="async"
-                        className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-55"
-                      />
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#08090b] via-[#08090b]/45 to-transparent lg:bg-gradient-to-r lg:from-[#08090b]/90 lg:via-[#08090b]/45 lg:to-transparent" />
-                    <div className="relative z-10 max-w-xl">
-                      <div className="rank-stroke -mb-6 select-none font-mono">{idx + 1}</div>
-                      <div className="mb-1.5 flex items-center gap-2 font-mono text-xs">
-                        <span className="rounded border border-white/10 bg-black/50 px-2 py-0.5 text-[#ffd27a]">★ {m.r}</span>
-                        <span className="text-white/60">{m.d} · {m.ty}</span>
-                      </div>
-                      <h1 className="mb-2 font-serif text-[34px] font-bold leading-tight tracking-tight lg:text-5xl">{m.t}</h1>
-                      <p className="mb-5 line-clamp-2 font-mono text-xs leading-relaxed text-[#f3efe6]/80 lg:text-sm">AI ▸ {m.ai || m.w}</p>
-                      <div className="flex items-center gap-2.5">
-                        <button type="button" onClick={() => void openDetail(m)} className="rounded-full px-5 py-2 text-xs font-medium text-[#08090b] active:scale-95 lg:text-sm" style={{ background: 'var(--a)' }}>
-                          ▶ 找片源
-                        </button>
-                        <button type="button" onClick={() => openQuick(m)} className="glass rounded-full px-4 py-2 text-xs text-white/85 hover:bg-white/15 lg:text-sm">
-                          ✦ 30 秒决策卡
-                        </button>
-                      </div>
-                    </div>
-                    {m.poster && (
-                      <div className="relative z-10 hidden w-44 shrink-0 overflow-hidden rounded-2xl border border-white/15 shadow-2xl lg:block">
-                        <CinemaImg src={toListPoster(m.poster)} loading={idx === 0 ? 'eager' : 'lazy'} className="aspect-[2/3] w-full object-cover" />
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              {/* 移动端悬浮极光搜索框（桌面端已在顶栏常驻） */}
-              <form
-                className="aur absolute bottom-3 left-4 right-4 z-30 shadow-2xl lg:hidden"
-                onSubmit={handleSearchSubmit}
-              >
-                <div className="flex items-center gap-2 rounded-[18.5px] bg-[#0d0f14] px-3.5 py-2.5">
-                  <span className="text-sm" style={{ color: 'var(--a)' }}>✦</span>
-                  <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder={placeholder}
-                    aria-label="AI 搜索"
-                    className="flex-1 bg-transparent text-sm text-[#f3efe6] placeholder:text-white/40 focus:outline-none"
+                    className={`h-1.5 rounded-full transition-all duration-300 ${
+                      activeDot ? 'w-5' : 'w-1.5 bg-white/40 hover:bg-white/70'
+                    }`}
+                    style={activeDot ? { background: 'var(--a)' } : undefined}
                   />
-                  <button type="submit" className="rounded-xl px-3 py-1 text-xs font-medium text-[#08090b]" style={{ background: 'var(--a)' }}>搜索</button>
-                </div>
-              </form>
-            </section>
+                );
+              })}
+            </div>
+          )}
+
+          {/* 移动端悬浮极光搜索框（桌面端已在顶栏常驻） */}
+          <form
+            className="aur absolute bottom-3 left-4 right-4 z-30 shadow-2xl lg:hidden"
+            onSubmit={handleSearchSubmit}
+          >
+            <div className="flex items-center gap-2 rounded-[18.5px] bg-[#0d0f14] px-3.5 py-2.5">
+              <span className="text-sm" style={{ color: 'var(--a)' }}>✦</span>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={placeholder}
+                aria-label="AI 搜索"
+                className="flex-1 bg-transparent text-sm text-[#f3efe6] placeholder:text-white/40 focus:outline-none"
+              />
+              <button type="submit" className="rounded-xl px-3 py-1 text-xs font-medium text-[#08090b]" style={{ background: 'var(--a)' }}>搜索</button>
+            </div>
+          </form>
+        </section>
+      )}
+
+      <div className={`relative z-10 mx-auto w-full max-w-7xl lg:px-6 ${tab === 'home' ? '' : 'lg:pt-16'}`}>
+        {tab === 'home' && (
+          <div>
 
             {/* 情绪灵感胶囊（大号 Emoji + 时段置顶 + 换一批 + 1~2 个多选组合） */}
             <section className="mt-5 px-4 lg:mt-7 lg:px-0">
@@ -1280,55 +1306,65 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
               </button>
             </div>
 
-            {/* 管理员专属入口 */}
+            {/* 管理员专属入口（统一线性图标，无 Emoji） */}
             {isAdmin && (
-              <div className="mt-4 space-y-2 border-t border-white/10 pt-4">
-                <div className="mb-1.5 font-mono text-[10px] uppercase tracking-wider" style={{ color: 'var(--a)' }}>
+              <div className="mt-4 border-t border-white/10 pt-4">
+                <div className="mb-2 font-mono text-[10px] uppercase tracking-wider" style={{ color: 'var(--a)' }}>
                   管理员控制台
                 </div>
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between rounded-xl py-2.5 px-4 text-left text-xs font-semibold text-[#08090b] transition active:scale-[0.99]"
-                  style={{ background: 'var(--a)' }}
-                  onClick={() => {
-                    setSettingsOpen(false);
-                    setAccountOpen(true);
-                  }}
-                >
-                  <span className="flex items-center gap-2">
-                    <span className="text-sm">🎟️</span>
-                    <span>生成与管理邀请码 / 用户列表</span>
-                  </span>
-                  <span className="font-mono text-sm font-bold">›</span>
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-left text-xs font-medium text-[#f3efe6] transition hover:bg-white/10 active:scale-[0.99]"
-                  onClick={() => {
-                    setSettingsOpen(false);
-                    setAiConfigOpen(true);
-                  }}
-                >
-                  <span className="flex items-center gap-2">
-                    <span className="text-sm">🤖</span>
-                    <span>配置 AI 策展大模型 (DeepSeek / GitHub)</span>
-                  </span>
-                  <span className="font-mono text-white/40">›</span>
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-left text-xs font-medium text-[#f3efe6] transition hover:bg-white/10 active:scale-[0.99]"
-                  onClick={() => {
-                    setSettingsOpen(false);
-                    setSourceOpen(true);
-                  }}
-                >
-                  <span className="flex items-center gap-2">
-                    <span className="text-sm">📡</span>
-                    <span>管理点播片源与直播订阅</span>
-                  </span>
-                  <span className="font-mono text-white/40">›</span>
-                </button>
+                <div className="divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04]">
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between px-4 py-3 text-left text-xs font-medium text-[#f3efe6] transition hover:bg-white/[0.06] active:scale-[0.99]"
+                    onClick={() => {
+                      setSettingsOpen(false);
+                      setAccountOpen(true);
+                    }}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <svg className="h-4 w-4 shrink-0" style={{ color: 'var(--a)' }} fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 11-4 0 2 2 0 014 0zM4 20a6 6 0 0112 0M17 11h4m-2-2v4" />
+                      </svg>
+                      <span>生成与管理邀请码 / 用户列表</span>
+                    </span>
+                    <span className="font-mono text-white/40">›</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between px-4 py-3 text-left text-xs font-medium text-[#f3efe6] transition hover:bg-white/[0.06] active:scale-[0.99]"
+                    onClick={() => {
+                      setSettingsOpen(false);
+                      setAiConfigOpen(true);
+                    }}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <svg className="h-4 w-4 shrink-0" style={{ color: 'var(--a)' }} fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2L12 3z" />
+                      </svg>
+                      <span>配置 AI 策展大模型 (DeepSeek / GitHub)</span>
+                    </span>
+                    <span className="font-mono text-white/40">›</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-center justify-between px-4 py-3 text-left text-xs font-medium text-[#f3efe6] transition hover:bg-white/[0.06] active:scale-[0.99]"
+                    onClick={() => {
+                      setSettingsOpen(false);
+                      setSourceOpen(true);
+                    }}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <svg className="h-4 w-4 shrink-0" style={{ color: 'var(--a)' }} fill="none" stroke="currentColor" strokeWidth="1.7" viewBox="0 0 24 24">
+                        <rect x="3" y="4" width="18" height="6" rx="1.5" />
+                        <rect x="3" y="14" width="18" height="6" rx="1.5" />
+                        <circle cx="7" cy="7" r="0.8" fill="currentColor" />
+                        <circle cx="7" cy="17" r="0.8" fill="currentColor" />
+                      </svg>
+                      <span>管理点播片源与直播订阅</span>
+                    </span>
+                    <span className="font-mono text-white/40">›</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>

@@ -51,8 +51,8 @@ function LiveContent() {
   const customImageProxy = useAppStore((s) => s.customImageProxy);
   const { verified } = useAuth();
   const [copied, setCopied] = useState(false);
-  // 移动端频道抽屉开合
-  const [listOpen, setListOpen] = useState(false);
+  // 移动端在播放器下方使用双 Tab 切换「频道列表 / 节目单」，默认展示频道列表
+  const [mobileTab, setMobileTab] = useState<'channels' | 'epg'>('channels');
   const [logoFailed, setLogoFailed] = useState(false);
   /** 侧栏上报的筛选排序结果（键盘换台沿此列表顺序）；ref 存储，不触发重渲染 */
   const filteredRef = useRef<LiveChannelItem[]>([]);
@@ -198,8 +198,6 @@ function LiveContent() {
   const handleSelect = useCallback(
     (c: LiveChannelItem) => {
       selectChannel(c);
-      // 移动端抽屉：选中即收起
-      setListOpen(false);
     },
     [selectChannel]
   );
@@ -219,13 +217,13 @@ function LiveContent() {
   const isFavorite = currentChannel ? liveFavorites.includes(currentChannel.url) : false;
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="cinema-app min-h-screen flex flex-col pb-24 text-[#f3efe6] lg:pb-6">
       <Header showSearch />
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-4">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
-          {/* 主栏：播放器 + 信息条 + 节目单 */}
+      <main className="mx-auto w-full max-w-7xl flex-1 px-3 py-3 sm:px-4 sm:py-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+          {/* 主栏：播放器 + 信息条 + 桌面端节目单 */}
           <div className="min-w-0">
-            <div className="aspect-video bg-black rounded-lg overflow-hidden">
+            <div className="aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl">
               {currentUrl ? (
                 <LivePlayer
                   url={currentUrl}
@@ -235,16 +233,21 @@ function LiveContent() {
                   volumeBoost={volumeBoost}
                 />
               ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-black">
+                <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-black px-4 text-center">
                   <span className="live-dot" />
-                  <p className="text-white/60 text-sm">
-                    {sources.length === 0
-                      ? liveEnvSources.length + liveSubscriptions.length > 0
+                  <p className="text-sm text-white/60">
+                    {sources.length === 0 ? (
+                      liveEnvSources.length + liveSubscriptions.length > 0
                         ? '所有直播源均已停用，请在设置中勾选启用'
                         : '直播源未配置'
-                      : playlistsQuery.isLoading
-                        ? '频道列表加载中...'
-                        : '从右侧选择一个频道开始观看'}
+                    ) : playlistsQuery.isLoading ? (
+                      '频道列表加载中...'
+                    ) : (
+                      <>
+                        <span className="lg:hidden">从下方选择一个频道开始观看</span>
+                        <span className="hidden lg:inline">从右侧选择一个频道开始观看</span>
+                      </>
+                    )}
                   </p>
                 </div>
               )}
@@ -380,49 +383,57 @@ function LiveContent() {
               </div>
             )}
 
-            {/* 节目单 */}
+            {/* 移动端双 Tab 切换栏：默认直接显示频道列表，解决手机看不到右侧频道问题 */}
+            <div className="mt-3 flex gap-2 rounded-xl border border-white/10 bg-white/[0.04] p-1 lg:hidden">
+              <button
+                type="button"
+                onClick={() => setMobileTab('channels')}
+                className={cn(
+                  'flex-1 rounded-lg py-2 text-xs font-medium transition-colors',
+                  mobileTab === 'channels' ? 'text-[#08090b] font-semibold' : 'text-white/65 hover:text-white'
+                )}
+                style={mobileTab === 'channels' ? { background: 'var(--a)' } : undefined}
+              >
+                频道列表{channels.length > 0 ? ` (${channels.length})` : ''}
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileTab('epg')}
+                className={cn(
+                  'flex-1 rounded-lg py-2 text-xs font-medium transition-colors',
+                  mobileTab === 'epg' ? 'text-[#08090b] font-semibold' : 'text-white/65 hover:text-white'
+                )}
+                style={mobileTab === 'epg' ? { background: 'var(--a)' } : undefined}
+              >
+                节目单
+              </button>
+            </div>
+
+            {/* 节目单：桌面端常驻在播放器下方；移动端切到「节目单」Tab 时展示 */}
             {currentChannel && (
-              <section className="bg-surface-raised border border-line rounded-lg p-3 mt-3">
-                <h2 className="text-sm font-semibold text-content mb-2.5">节目单</h2>
+              <section
+                className={cn(
+                  'mt-3 rounded-2xl border border-white/10 bg-white/[0.04] p-3.5',
+                  mobileTab === 'epg' ? 'block' : 'hidden lg:block'
+                )}
+              >
+                <h2 className="mb-2.5 text-sm font-semibold text-[#f3efe6]">节目单</h2>
                 <LiveEpgPanel epgUrl={currentChannel.epg} tvgId={currentChannel.tvgId} />
               </section>
             )}
           </div>
 
-          {/* 移动端抽屉遮罩 */}
-          {listOpen && (
-            <div
-              className="fixed inset-0 z-30 bg-black/50 lg:hidden"
-              aria-hidden="true"
-              onClick={() => setListOpen(false)}
-            />
-          )}
-
-          {/* 侧栏：桌面常驻 sticky；移动端底部抽屉 */}
+          {/* 频道列表：桌面端居右 sticky 常驻；移动端在播放器下方直接平铺展示 */}
           <aside
             className={cn(
-              'bg-surface-raised border border-line flex-col overflow-hidden',
-              'fixed inset-x-0 bottom-0 z-40 h-[75vh] rounded-t-2xl shadow-2xl',
-              listOpen ? 'flex' : 'hidden',
-              'lg:sticky lg:top-20 lg:flex lg:h-[calc(100vh-6.5rem)] lg:rounded-xl lg:shadow-none'
+              'flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0f1219]/90',
+              mobileTab === 'channels' ? 'flex h-[58vh] min-h-[360px]' : 'hidden',
+              'lg:sticky lg:top-20 lg:flex lg:h-[calc(100vh-6.5rem)]'
             )}
           >
-            {/* 抽屉把手栏（仅移动端） */}
-            <div className="flex items-center justify-between px-3 pt-3 pb-1 shrink-0 lg:hidden">
-              <span className="text-sm font-semibold text-content">频道列表</span>
-              <button
-                className="rounded-md p-1.5 text-muted hover:text-content hover:bg-hover transition-colors"
-                aria-label="关闭频道列表"
-                onClick={() => setListOpen(false)}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="flex-1 min-h-0 flex flex-col">
+            <div className="flex min-h-0 flex-1 flex-col">
               {playlistsQuery.isLoading && channels.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center">
+                <div className="flex flex-1 items-center justify-center">
                   <Spinner size="lg" />
                 </div>
               ) : (
@@ -435,7 +446,7 @@ function LiveContent() {
                 />
               )}
               {(failedCount > 0 || sources.length === 0) && (
-                <p className="text-[10px] text-faint px-3 py-1.5 border-t border-line shrink-0">
+                <p className="shrink-0 border-t border-white/10 px-3 py-1.5 text-[10px] text-white/45">
                   {sources.length === 0
                     ? liveEnvSources.length + liveSubscriptions.length > 0
                       ? '所有直播源均已停用，请在设置中勾选启用'
@@ -446,24 +457,6 @@ function LiveContent() {
             </div>
           </aside>
         </div>
-
-        {/* 移动端呼出频道列表的悬浮按钮 */}
-        {!listOpen && channels.length > 0 && (
-          <button
-            className="fixed bottom-4 right-4 z-30 flex items-center gap-1.5 rounded-full bg-accent px-4 py-2.5 text-sm text-on-accent shadow-lg lg:hidden"
-            onClick={() => setListOpen(true)}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-            频道
-          </button>
-        )}
       </main>
     </div>
   );

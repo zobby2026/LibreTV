@@ -174,13 +174,13 @@ export function Drawer({
         aria-label={title}
         tabIndex={-1}
         className={cn(
-          'absolute right-0 top-0 h-full w-full bg-surface-raised border-l border-line flex flex-col outline-none',
+          'absolute right-0 top-0 h-full w-full bg-[#0d0f14]/95 backdrop-blur-xl border-l border-white/12 text-[#f3efe6] flex flex-col outline-none',
           'transition-transform duration-200 ease-out',
           width,
           !modal && 'pointer-events-auto shadow-2xl',
           // 小屏底部抽屉：占下半屏、贴底、顶部圆角，留出上半屏给画面
           mobileSheet &&
-            'max-lg:inset-x-0 max-lg:top-auto max-lg:bottom-0 max-lg:h-auto max-lg:max-h-[60vh] max-lg:max-w-none max-lg:rounded-t-xl max-lg:border-t max-lg:border-l-0 max-lg:pb-[env(safe-area-inset-bottom)]',
+            'max-lg:inset-x-0 max-lg:top-auto max-lg:bottom-0 max-lg:h-auto max-lg:max-h-[60vh] max-lg:max-w-none max-lg:rounded-t-3xl max-lg:border-t max-lg:border-l-0 max-lg:pb-[env(safe-area-inset-bottom)]',
           entered
             ? 'translate-x-0 max-lg:translate-y-0'
             : cn('translate-x-full', mobileSheet && 'max-lg:translate-x-0 max-lg:translate-y-full')
