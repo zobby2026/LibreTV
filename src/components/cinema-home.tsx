@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/client-api';
-import { catalog, flattenCatalog, type CatalogItem } from '@/lib/catalog';
+import { catalog, flattenCatalog, type CatalogEditorial, type CatalogItem, type CatalogMood } from '@/lib/catalog';
 import { clearAllHistory } from '@/lib/db';
 import { isInDisabledSubscription, isSourceDisabled, resolveSource, useAppStore } from '@/lib/store';
 import { buildWatchUrl, validateSourceUrl } from '@/lib/utils';
@@ -17,12 +17,19 @@ import { SourceManagerDrawer } from './source-manager';
 import { useToast } from './toast';
 import type { SearchResultItem, SourceConfig } from '@/lib/types';
 
-const MOODS = [
-  { label: '深夜 emo', sub: '孤独与治愈', icon: '☾', bg: 'linear-gradient(135deg,#1e293b,#0f172a)' },
-  { label: '适合下饭', sub: '轻快不费脑', icon: '☀', bg: 'linear-gradient(135deg,#451a03,#1c1917)' },
-  { label: '烧脑反转', sub: '高能悬疑', icon: '❖', bg: 'linear-gradient(135deg,#312e81,#0f172a)' },
-  { label: '周末轻松喜剧', sub: '放松大笑', icon: '✦', bg: 'linear-gradient(135deg,#064e3b,#022c22)' },
-  { label: '高分冷门', sub: '私藏佳片', icon: '◈', bg: 'linear-gradient(135deg,#4c1d95,#1e1b4b)' },
+const BASE_MOODS: CatalogMood[] = [
+  { emoji: '🌧️', label: '深夜 emo', sub: '孤独与治愈', query: '适合深夜一个人看、情绪细腻且有治愈感的文艺电影', bg: 'linear-gradient(135deg,#1e293b,#0f172a)', slot: 'night' },
+  { emoji: '🍜', label: '午休下饭', sub: '轻快不费脑', query: '适合吃饭时看、节奏轻快有趣不费脑的下饭剧或喜剧', bg: 'linear-gradient(135deg,#451a03,#1c1917)', slot: 'noon' },
+  { emoji: '🤯', label: '烧脑反转', sub: '高能悬疑', query: '结局反转惊艳、逻辑严密的高能悬疑烧脑电影或短剧', bg: 'linear-gradient(135deg,#312e81,#0f172a)', slot: 'any' },
+  { emoji: '🍿', label: '周末狂欢', sub: '大屏爽片', query: '适合周末晚上窝在沙发上看的节奏爽快高分大片', bg: 'linear-gradient(135deg,#064e3b,#022c22)', slot: 'weekend' },
+  { emoji: '💎', label: '高分冷门', sub: '私藏佳片', query: '豆瓣8.2分以上冷门小众、质感高级的私藏佳片', bg: 'linear-gradient(135deg,#4c1d95,#1e1b4b)', slot: 'any' },
+  { emoji: '😂', label: '爆笑解压', sub: '电子布洛芬', query: '笑点密集、不尴尬、看完烦恼清空的高分喜剧片', bg: 'linear-gradient(135deg,#713f12,#1c1917)', slot: 'weekend' },
+  { emoji: '💔', label: '痛快哭一场', sub: '后劲极大', query: '情感真挚克制、让人忍不住流泪且后劲极大的催泪佳作', bg: 'linear-gradient(135deg,#4c0519,#1c0a12)', slot: 'night' },
+  { emoji: '🚀', label: '科幻奇观', sub: '脑洞宇宙', query: '想象力惊人、视听震撼的高分硬核科幻电影', bg: 'linear-gradient(135deg,#0c4a6e,#082032)', slot: 'any' },
+  { emoji: '🔍', label: '硬核探案', sub: '抽丝剥茧', query: '抽丝剥茧、细节拉满的高分犯罪推理探案剧或电影', bg: 'linear-gradient(135deg,#1e3a5f,#0b1320)', slot: 'any' },
+  { emoji: '🌸', label: '温柔日常', sub: '慢节奏治愈', query: '画面干净温柔、讲述生活微光的日系或华语治愈片', bg: 'linear-gradient(135deg,#500724,#1f1024)', slot: 'noon' },
+  { emoji: '🎞️', label: '复古港风', sub: '黄金年代', query: '氛围浓郁、光影迷人的经典港片或怀旧年代佳作', bg: 'linear-gradient(135deg,#3f2e18,#18120b)', slot: 'night' },
+  { emoji: '🛋️', label: '懒人放空', sub: '无脑放松', query: '不需要动脑、轻松愉快、适合躺平放空看的剧或电影', bg: 'linear-gradient(135deg,#134e4a,#071e1c)', slot: 'weekend' },
 ];
 
 const PLACEHOLDERS = [
@@ -217,7 +224,72 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
     return () => window.clearInterval(id);
   }, [query]);
 
-  const feedItems = useMemo(() => buildFeedFlat(boards), [boards]);
+  const [moodPage, setMoodPage] = useState(0);
+  const [selectedMoods, setSelectedMoods] = useState<CatalogMood[]>([]);
+  const [timeSlot, setTimeSlot] = useState<'noon' | 'night' | 'weekend' | 'any'>('any');
+
+  useEffect(() => {
+    const now = new Date();
+    const hour = now.getHours();
+    const day = now.getDay();
+    if (hour >= 11 && hour < 14) setTimeSlot('noon');
+    else if (hour >= 22 || hour < 4) setTimeSlot('night');
+    else if (day === 0 || day === 6 || (day === 5 && hour >= 18)) setTimeSlot('weekend');
+    else setTimeSlot('any');
+  }, []);
+
+  const moodPool = useMemo(() => {
+    const daily = catalog.moods || [];
+    const seen = new Set<string>();
+    const merged: CatalogMood[] = [];
+    for (const m of [...daily, ...BASE_MOODS]) {
+      if (seen.has(m.label)) continue;
+      seen.add(m.label);
+      merged.push(m);
+    }
+    if (timeSlot === 'any') return merged;
+    const matchIdx = merged.findIndex((m) => !m.hot && m.slot === timeSlot);
+    if (matchIdx <= 0) return merged;
+    const copy = [...merged];
+    const [picked] = copy.splice(matchIdx, 1);
+    copy.unshift(picked);
+    return copy;
+  }, [timeSlot]);
+
+  const visibleMoods = useMemo(() => {
+    const size = 5;
+    if (moodPool.length <= size) return moodPool;
+    const start = (moodPage * size) % moodPool.length;
+    const out: CatalogMood[] = [];
+    for (let i = 0; i < size; i += 1) {
+      out.push(moodPool[(start + i) % moodPool.length]);
+    }
+    return out;
+  }, [moodPool, moodPage]);
+
+  const toggleMood = (mood: CatalogMood) => {
+    setSelectedMoods((prev) => {
+      if (prev.some((m) => m.label === mood.label)) {
+        return prev.filter((m) => m.label !== mood.label);
+      }
+      if (prev.length >= 2) {
+        return [prev[1], mood];
+      }
+      return [...prev, mood];
+    });
+  };
+
+  const searchCombinedMoods = () => {
+    if (selectedMoods.length === 0) return;
+    const prompt =
+      selectedMoods.length === 1
+        ? selectedMoods[0].query || `${selectedMoods[0].label}（${selectedMoods[0].sub}）`
+        : `同时兼具「${selectedMoods[0].label}（${selectedMoods[0].sub}）」和「${selectedMoods[1].label}（${selectedMoods[1].sub}）」两种情绪氛围的高分影视`;
+    setSelectedMoods([]);
+    startSearch(prompt);
+  };
+
+  const feedItems = useMemo(() => buildFeedFlat(boards, hero, catalog.editorials), [boards, hero]);
 
   const onHeroScroll = () => {
     const rail = railRef.current;
@@ -521,25 +593,116 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
               </form>
             </section>
 
-            {/* 情绪灵感胶囊 */}
+            {/* 情绪灵感胶囊（大号 Emoji + 时段置顶 + 换一批 + 1~2 个多选组合） */}
             <section className="mt-5 px-4 lg:mt-7 lg:px-0">
-              <div className="no-scrollbar flex gap-2.5 overflow-x-auto pb-1 lg:grid lg:grid-cols-5 lg:gap-3">
-                {MOODS.map((mood) => (
-                  <button
-                    key={mood.label}
-                    type="button"
-                    onClick={() => startSearch(mood.label)}
-                    className="relative flex h-[104px] w-[120px] flex-shrink-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/10 p-3 text-left transition-transform hover:-translate-y-0.5 active:scale-95 lg:w-auto"
-                    style={{ background: mood.bg }}
-                  >
-                    <span className="text-lg opacity-90">{mood.icon}</span>
-                    <span>
-                      <span className="block text-xs font-semibold lg:text-sm">{mood.label}</span>
-                      <span className="mt-0.5 block font-mono text-[10px] text-white/50">{mood.sub}</span>
-                    </span>
-                  </button>
-                ))}
+              <div className="mb-2.5 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <h2 className="font-serif text-base font-semibold lg:text-lg">此刻心情</h2>
+                  <span className="font-mono text-[10px] text-white/45 lg:text-xs">点选 1~2 个自由组合</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMoodPage((p) => p + 1)}
+                  className="glass inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-mono text-[11px] text-white/75 transition hover:bg-white/15 hover:text-white active:scale-95"
+                >
+                  <span>🎲</span>
+                  <span>换一批</span>
+                </button>
               </div>
+              <div className="no-scrollbar flex gap-2.5 overflow-x-auto pb-1 lg:grid lg:grid-cols-5 lg:gap-3">
+                {visibleMoods.map((mood) => {
+                  const picked = selectedMoods.some((m) => m.label === mood.label);
+                  const isTimePick = timeSlot !== 'any' && mood.slot === timeSlot;
+                  return (
+                    <button
+                      key={mood.label}
+                      type="button"
+                      aria-pressed={picked}
+                      onClick={() => toggleMood(mood)}
+                      className={`group relative flex h-[112px] w-[124px] flex-shrink-0 flex-col justify-between overflow-hidden rounded-2xl border p-3 text-left transition-all hover:-translate-y-0.5 active:scale-95 lg:w-auto ${
+                        picked ? 'shadow-lg' : 'border-white/10'
+                      }`}
+                      style={{
+                        background: mood.bg,
+                        borderColor: picked ? 'var(--a)' : undefined,
+                        boxShadow: picked ? '0 0 0 1px var(--a), 0 8px 20px -8px var(--a)' : undefined,
+                      }}
+                    >
+                      <div className="flex items-start justify-between">
+                        <span
+                          className={`text-[30px] leading-none transition-transform duration-200 group-hover:scale-110 ${
+                            picked ? 'scale-110' : ''
+                          }`}
+                          role="img"
+                          aria-hidden
+                        >
+                          {mood.emoji}
+                        </span>
+                        {picked ? (
+                          <span
+                            className="flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold text-[#08090b]"
+                            style={{ background: 'var(--a)' }}
+                          >
+                            ✓
+                          </span>
+                        ) : mood.hot ? (
+                          <span className="rounded-full bg-black/45 px-1.5 py-0.5 font-mono text-[9px] text-[#ffd27a] backdrop-blur-sm">
+                            热议
+                          </span>
+                        ) : isTimePick ? (
+                          <span className="rounded-full bg-black/45 px-1.5 py-0.5 font-mono text-[9px] text-white/85 backdrop-blur-sm">
+                            此刻
+                          </span>
+                        ) : null}
+                      </div>
+                      <span>
+                        <span className="block truncate text-xs font-semibold lg:text-sm">{mood.label}</span>
+                        <span className="mt-0.5 block truncate font-mono text-[10px] text-white/55">{mood.sub}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* 选中 1~2 个心情后浮现的组合策展栏 */}
+              {selectedMoods.length > 0 && (
+                <div className="glass mt-3 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/15 px-3.5 py-2.5">
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    <span className="font-mono text-[10px] text-white/45">已选情绪：</span>
+                    {selectedMoods.map((m, idx) => (
+                      <span key={m.label} className="inline-flex items-center gap-1">
+                        {idx > 0 && <span className="font-mono text-white/35">+</span>}
+                        <button
+                          type="button"
+                          onClick={() => toggleMood(m)}
+                          className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-0.5 text-xs text-white/95 hover:bg-white/20"
+                        >
+                          <span>{m.emoji}</span>
+                          <span>{m.label}</span>
+                          <span className="text-white/45">×</span>
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="ml-auto flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedMoods([])}
+                      className="rounded-full px-2.5 py-1 text-[11px] text-white/55 hover:text-white"
+                    >
+                      清空
+                    </button>
+                    <button
+                      type="button"
+                      onClick={searchCombinedMoods}
+                      className="rounded-full px-3.5 py-1.5 text-xs font-semibold text-[#08090b] active:scale-95"
+                      style={{ background: 'var(--a)' }}
+                    >
+                      ✦ {selectedMoods.length > 1 ? 'AI 组合找片' : 'AI 找片'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </section>
 
             {/* 影展榜单 */}
@@ -610,16 +773,21 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
               <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-5 lg:gap-4 xl:grid-cols-6">
                 {feedItems.map((item, idx) => item.editorial ? (
                   <button
-                    key={item.id}
+                    key={item.card.id}
                     type="button"
-                    onClick={() => startSearch(item.query)}
+                    onClick={() => startSearch(item.card.query)}
                     className="flex aspect-[2/3] w-full flex-col justify-between rounded-2xl border border-white/15 p-3.5 text-left transition-transform hover:-translate-y-1 active:scale-95"
-                    style={{ background: 'linear-gradient(150deg, var(--a), #14161d 85%)' }}
+                    style={{ background: `linear-gradient(150deg, ${item.card.accent || 'var(--a)'}, #14161d 86%)` }}
                   >
-                    <div className="font-mono text-[9px] tracking-widest text-white/80">AI 策展笔记</div>
+                    <div className="inline-flex w-fit items-center rounded-full bg-black/30 px-2 py-0.5 font-mono text-[9px] tracking-wider text-white/90 backdrop-blur-sm">
+                      {item.card.badge}
+                    </div>
                     <div>
-                      <div className="font-serif text-sm font-bold leading-snug lg:text-base">{item.title}</div>
-                      <div className="mt-2 font-mono text-[10px] text-white/75">点击查看片单 ›</div>
+                      <div className="line-clamp-3 font-serif text-sm font-bold leading-snug lg:text-base">{item.card.title}</div>
+                      {item.card.sub && (
+                        <div className="mt-1 line-clamp-1 text-[10px] text-white/75">{item.card.sub}</div>
+                      )}
+                      <div className="mt-2 font-mono text-[10px] text-white/80">查看热点片单 ›</div>
                     </div>
                   </button>
                 ) : (
@@ -1219,28 +1387,71 @@ function DockButton({ label, active, onClick, icon }: { label: string; active: b
 }
 
 type FeedCell =
-  | { editorial: true; id: string; title: string; query: string }
+  | { editorial: true; card: CatalogEditorial }
   | { editorial: false; movie: CatalogItem };
 
-function buildFeedFlat(boards: typeof catalog.boards): FeedCell[] {
+function buildFallbackEditorials(hero: CatalogItem[]): CatalogEditorial[] {
+  const topTitle = hero[0]?.t || '高分悬疑';
+  const secondTitle = hero[1]?.t || '冷门佳片';
+  return [
+    {
+      id: 'ed_fallback_1',
+      badge: '🔥 豆瓣今日热议',
+      title: `都在聊《${topTitle}》？这 3 部同气质佳作更上头`,
+      sub: '顺着今日热榜挖同款氛围',
+      query: `像《${topTitle}》一样口碑出圈、剧情紧凑、值得一口气刷完的高分影视`,
+      accent: hero[0]?.a || '#e86f51',
+    },
+    {
+      id: 'ed_fallback_2',
+      badge: '🌙 今晚放映指南',
+      title: '今晚这 3 部适合一个人关灯看，后劲极大',
+      sub: '深夜沉浸与情绪疗愈',
+      query: '适合深夜一个人关灯看、氛围感极强、后劲大的高分电影',
+      accent: '#5ea8ff',
+    },
+    {
+      id: 'ed_fallback_3',
+      badge: '🎞️ 策展人私藏',
+      title: `除了《${secondTitle}》，这 3 部 8.5+ 冷门神片别错过`,
+      sub: '高分小众不踩雷',
+      query: '豆瓣8.5分以上冷门小众、摄影高级、很少人推荐但极其惊艳的电影',
+      accent: '#b28cff',
+    },
+  ];
+}
+
+function buildFeedFlat(
+  boards: typeof catalog.boards,
+  hero: CatalogItem[],
+  dailyEditorials?: CatalogEditorial[]
+): FeedCell[] {
   const seen = new Set<string>();
   const list: FeedCell[] = [];
   boards.forEach((b) => {
     b.items.forEach((m) => {
-      if (!seen.has(m.t) && list.length < 23) {
+      if (!seen.has(m.t) && list.length < 21) {
         seen.add(m.t);
         list.push({ editorial: false, movie: m });
       }
     });
   });
-  if (list.length >= 4) {
-    list.splice(4, 0, {
-      editorial: true,
-      id: 'ai_editorial_1',
-      title: '今晚这 3 部适合一个人关灯看',
-      query: '适合深夜一个人关灯看、氛围感极强的电影',
-    });
-  }
+
+  const editorials =
+    dailyEditorials && dailyEditorials.length > 0
+      ? dailyEditorials.slice(0, 3)
+      : buildFallbackEditorials(hero);
+
+  // 将 3 张每日热点 AI 策展笔记均匀穿插在瀑布流第 3、10、17 位
+  const slots = [2, 9, 16];
+  editorials.forEach((card, idx) => {
+    const pos = slots[idx];
+    if (pos !== undefined && list.length >= pos) {
+      list.splice(pos, 0, { editorial: true, card });
+    } else {
+      list.push({ editorial: true, card });
+    }
+  });
   return list;
 }
 

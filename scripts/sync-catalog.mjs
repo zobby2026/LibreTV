@@ -17,9 +17,13 @@ try {
 }
 
 /**
- * 每日片单同步。零依赖，只用 Node 20 原生 fetch。
- * 优先走豆瓣移动端实时热榜（串行 500ms 间隔防风控），拿到片名后若配有 TMDB_API_KEY
- * 则顺手补齐高清横版剧照（w780）；若豆瓣临时风控失败，自动回退到 TMDB 榜单兜底。
+ * 每日片单与热点策展同步。零依赖，只用 Node 20 原生 fetch。
+ * 1. 优先走豆瓣移动端实时热榜（串行 500ms 间隔防风控），若配有 TMDB_API_KEY 则补齐高清横版剧照（w780）；
+ *    豆瓣风控失败时自动回退 TMDB 榜单兜底。
+ * 2. 顺手抓取豆瓣热议与 60s 免费热榜（微博/知乎/B站），由 AI 一次性生成：
+ *    - 3 张每日热点「AI 策展笔记」（editorials）
+ *    - 2~3 张「今日热点心情卡」（moods）
+ *    写入 public/data/catalog.json，用户访问 0 延迟、0 实时 Token。
  */
 const TMDB_KEY = process.env.TMDB_API_KEY || '';
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || '';
@@ -28,6 +32,8 @@ const AI_BASE_URL = (process.env.AI_BASE_URL || (GITHUB_TOKEN && !process.env.AI
   : 'https://api.deepseek.com/v1')).replace(/\/+$/, '');
 const AI_API_KEY = process.env.AI_API_KEY || (AI_BASE_URL.includes('models.github.ai') ? GITHUB_TOKEN : '');
 const AI_MODEL = process.env.AI_MODEL || (AI_BASE_URL.includes('models.github.ai') ? 'openai/gpt-4o-mini' : 'deepseek-chat');
+const SIXTY_BASE = (process.env['60S_API_BASE'] || 'https://60s.crystelf.top').replace(/\/+$/, '');
+const SIXTY_FALLBACK = 'https://60s.viki.moe';
 
 const MOBILE_UA =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
@@ -37,6 +43,13 @@ const PALETTE = [
   ['#b28cff', '#1b112e'], ['#4ecdc4', '#0b2220'], ['#ff6b8b', '#2b0f18'],
   ['#ffd27a', '#29200b'], ['#7ae582', '#0d2412'], ['#ff8c42', '#2b1608'],
   ['#6ee7ff', '#0b2026'],
+];
+
+const MOOD_BG_POOL = [
+  'linear-gradient(135deg,#3b1d2a,#140a10)',
+  'linear-gradient(135deg,#1d2d44,#0b1320)',
+  'linear-gradient(135deg,#2e1f47,#120d1d)',
+  'linear-gradient(135deg,#163832,#071916)',
 ];
 
 const DOUBAN_BOARDS = [
@@ -153,6 +166,187 @@ function formatTmdbItem(item, index = 0, posterSize = 'w342') {
   };
 }
 
+/** 从 60s 免费热榜（微博/知乎/B站）与豆瓣书影音话题抓取当天全网热议关键词 */
+async function fetchDailyHotTopics(hero) {
+  const topics = [];
+  const bases = SIXTY_BASE === SIXTY_FALLBACK ? [SIXTY_BASE] : [SIXTY_BASE, SIXTY_FALLBACK];
+
+  const fetch60s = async (endpoint) => {
+    for (const base of bases) {
+      try {
+        const res = await fetch(`${base}${endpoint}`, {
+          headers: { 'User-Agent': 'LibreTV-Sync/1.0', Accept: 'application/json' },
+          signal: AbortSignal.timeout(6000),
+        });
+        if (!res.ok) continue;
+        const json = await res.json();
+        if (Array.isArray(json?.data)) return json.data;
+      } catch {
+        /* 尝试下一个实例 */
+      }
+    }
+    return [];
+  };
+
+  // 1. 豆瓣当日热映/热播影片本身就是最精准的影视话题
+  hero.slice(0, 6).forEach((m) => topics.push(`豆瓣热议影视：${m.t}`));
+
+  // 2. 并行拉取 60s 微博 / 知乎 / B站热榜（各取前 8 条）
+  const [weibo, zhihu, bili] = await Promise.all([
+    fetch60s('/v2/weibo'),
+    fetch60s('/v2/zhihu'),
+    fetch60s('/v2/bili'),
+  ]);
+  for (const row of weibo.slice(0, 8)) {
+    const title = row?.title || row?.word || row?.name;
+    if (title) topics.push(`微博热搜：${String(title).slice(0, 28)}`);
+  }
+  for (const row of zhihu.slice(0, 8)) {
+    const title = row?.title || row?.name;
+    if (title) topics.push(`知乎热榜：${String(title).slice(0, 28)}`);
+  }
+  for (const row of bili.slice(0, 8)) {
+    const title = row?.title || row?.name;
+    if (title) topics.push(`B站热门：${String(title).slice(0, 28)}`);
+  }
+
+  return topics.slice(0, 28);
+}
+
+function buildFallbackDailyCuration(hero) {
+  const now = new Date();
+  const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  const dayLabel = weekdays[now.getDay()];
+  const topTitle = hero[0]?.t || '高分悬疑';
+  const secondTitle = hero[1]?.t || '治愈系电影';
+
+  const editorials = [
+    {
+      id: 'ed_hot_1',
+      badge: '🔥 豆瓣今日热议',
+      title: `都在聊《${topTitle}》？这 3 部同气质佳作更上头`,
+      sub: '顺着今日热榜挖同款氛围',
+      query: `像《${topTitle}》一样口碑出圈、剧情紧凑、值得一口气刷完的高分影视`,
+      accent: hero[0]?.a || '#e86f51',
+    },
+    {
+      id: 'ed_mood_2',
+      badge: `🌙 ${dayLabel}放映指南`,
+      title: `${dayLabel}晚上的电子布洛芬：3 部看完心情变轻的片`,
+      sub: '零压力下饭与情绪充电',
+      query: `适合${dayLabel}晚上放松解压、节奏轻快、画面治愈的高分电影或剧集`,
+      accent: '#5ea8ff',
+    },
+    {
+      id: 'ed_gem_3',
+      badge: '🎞️ 策展人私藏',
+      title: `除了《${secondTitle}》，这 3 部冷门高分片后劲极大`,
+      sub: '评分 8.2+ 却少有人推',
+      query: '豆瓣8.2分以上冷门小众、摄影高级、看完后劲极大的私藏佳片',
+      accent: '#b28cff',
+    },
+  ];
+
+  const moods = [
+    {
+      emoji: '🔥',
+      label: '今日热议',
+      sub: `同款《${topTitle.slice(0, 6)}》`,
+      query: `类似《${topTitle}》的近期热门高分影视`,
+      bg: MOOD_BG_POOL[0],
+      hot: true,
+      slot: 'any',
+    },
+    {
+      emoji: '🎬',
+      label: `${dayLabel}片单`,
+      sub: '今日专属氛围',
+      query: `适合${dayLabel}看的氛围感强、口碑在线的电影`,
+      bg: MOOD_BG_POOL[1],
+      hot: true,
+      slot: 'any',
+    },
+  ];
+
+  return { editorials, moods };
+}
+
+/** 每日一次性调用 AI 生成 3 张热点「AI 策展笔记」与 2~3 张「今日热点心情卡」 */
+async function generateDailyCuration(hero, hotTopics) {
+  const fallback = buildFallbackDailyCuration(hero);
+  if (!AI_API_KEY) return fallback;
+
+  const now = new Date();
+  const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${weekdays[now.getDay()]}`;
+
+  try {
+    const res = await fetch(`${AI_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${AI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content:
+              '你是极简暗黑风格的私人电影策展人。结合今日日期、豆瓣热议影视与全网热搜话题，策划：\n'
+              + '1. editorials：严格 3 张首页策展笔记（1张结合今日热点/豆瓣热议，1张结合今日星期/社会情绪，1张小众高分挖宝）。\n'
+              + '2. moods：2 张带大号单个 Emoji 的「今日热点心情卡」。\n'
+              + '严格返回 JSON：{"editorials":[{"badge":"🔥 豆瓣今日热议","title":"18字以内吸睛标题","sub":"10字以内副标题","query":"给AI找片用的精准中文搜索描述"}],"moods":[{"emoji":"🔥","label":"4-5字情绪名","sub":"5-7字副标","query":"给AI找片用的精准中文搜索描述"}]}',
+          },
+          {
+            role: 'user',
+            content: `今天是：${dateStr}\n今日热议与热榜参考：\n${hotTopics.join('\n')}`,
+          },
+        ],
+      }),
+    });
+    if (!res.ok) throw new Error(`AI ${res.status}`);
+    const data = await res.json();
+    const parsed = JSON.parse(data.choices?.[0]?.message?.content || '{}');
+
+    const rawEd = Array.isArray(parsed.editorials) ? parsed.editorials : [];
+    const editorials = rawEd
+      .filter((e) => e?.title && e?.query)
+      .slice(0, 3)
+      .map((e, i) => ({
+        id: `ed_daily_${i + 1}`,
+        badge: String(e.badge || '✦ 今日策展').slice(0, 14),
+        title: String(e.title).slice(0, 26),
+        sub: String(e.sub || '点击查看精选片单').slice(0, 18),
+        query: String(e.query).slice(0, 80),
+        accent: PALETTE[(i * 3) % PALETTE.length][0],
+      }));
+
+    const rawMoods = Array.isArray(parsed.moods) ? parsed.moods : [];
+    const moods = rawMoods
+      .filter((m) => m?.emoji && m?.label)
+      .slice(0, 3)
+      .map((m, i) => ({
+        emoji: String(m.emoji).slice(0, 4),
+        label: String(m.label).slice(0, 8),
+        sub: String(m.sub || '今日热门情绪').slice(0, 10),
+        query: String(m.query || m.label).slice(0, 80),
+        bg: MOOD_BG_POOL[i % MOOD_BG_POOL.length],
+        hot: true,
+        slot: 'any',
+      }));
+
+    return {
+      editorials: editorials.length === 3 ? editorials : fallback.editorials,
+      moods: moods.length >= 2 ? moods : fallback.moods,
+    };
+  } catch (err) {
+    console.warn('每日热点策展生成失败，使用兜底策展:', err instanceof Error ? err.message : err);
+    return fallback;
+  }
+}
+
 async function generateAiIntros(movies) {
   if (!AI_API_KEY) return {};
   const listText = movies.map((m, i) => `${i + 1}. ${m.t} (${m.y})`).join('\n');
@@ -199,7 +393,6 @@ async function buildFromDouban() {
     throw new Error(`豆瓣有效榜单不足（仅拿到 ${boards.length} 个），切换 TMDB 兜底`);
   }
 
-  // Hero 轮播：从「热门电影」和「一周口碑榜」去重取前 10 部，并补齐 TMDB 横版剧照（w780）
   const seen = new Set();
   const heroPool = [];
   const primaryBoards = [
@@ -264,21 +457,28 @@ async function main() {
     console.log('已回退使用 TMDB 榜单');
   }
 
-  const aiIntros = await generateAiIntros(result.hero);
+  const [aiIntros, hotTopics] = await Promise.all([
+    generateAiIntros(result.hero),
+    fetchDailyHotTopics(result.hero),
+  ]);
   result.hero.forEach((m) => {
     if (aiIntros[m.t]) m.ai = String(aiIntros[m.t]).slice(0, 40);
   });
+
+  const daily = await generateDailyCuration(result.hero, hotTopics);
 
   const payload = {
     updated_at: new Date().toISOString(),
     source: result.source,
     hero: result.hero,
     boards: result.boards,
+    editorials: daily.editorials,
+    moods: daily.moods,
   };
 
   await fs.mkdir(path.dirname(outPath), { recursive: true });
   await fs.writeFile(outPath, JSON.stringify(payload, null, 2), 'utf-8');
-  console.log(`已成功更新 public/data/catalog.json（来源：${result.source}）`);
+  console.log(`已成功更新 public/data/catalog.json（来源：${result.source}，策展笔记 ${daily.editorials.length} 张，热点心情 ${daily.moods.length} 张）`);
 }
 
 main().catch((err) => {

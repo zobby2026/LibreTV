@@ -25,11 +25,32 @@ export interface CatalogBoard {
   items: CatalogItem[];
 }
 
+export interface CatalogEditorial {
+  id: string;
+  badge: string;
+  title: string;
+  sub?: string;
+  query: string;
+  accent?: string;
+}
+
+export interface CatalogMood {
+  emoji: string;
+  label: string;
+  sub: string;
+  query?: string;
+  bg: string;
+  hot?: boolean;
+  slot?: 'noon' | 'night' | 'weekend' | 'any';
+}
+
 export interface CatalogFile {
   updated_at?: string;
   source?: string;
   hero: CatalogItem[];
   boards: CatalogBoard[];
+  editorials?: CatalogEditorial[];
+  moods?: CatalogMood[];
 }
 
 export const catalog = catalogJson as CatalogFile;
