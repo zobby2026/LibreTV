@@ -28,7 +28,7 @@ export function MobileDock() {
     <>
       <nav
         aria-label="主导航"
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 backdrop-blur-2xl lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#0c0d10] shadow-[0_-8px_24px_rgba(0,0,0,0.8)] lg:hidden"
       >
         <div className="mx-auto grid max-w-[480px] grid-cols-4 pb-[env(safe-area-inset-bottom)]">
           <DockLink href="/" active={pathname === '/'} icon="home" label="影展" />
@@ -64,15 +64,15 @@ function DockLink({
       href={href}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'relative flex flex-col items-center gap-1 py-2.5 transition-colors',
-        active ? 'text-accent' : 'text-muted hover:text-content'
+        'relative flex flex-col items-center gap-1.5 py-2.5 transition-colors',
+        active ? 'text-accent' : 'text-white/70 hover:text-white'
       )}
     >
       {active && (
-        <span aria-hidden className="absolute top-0 h-0.5 w-7 rounded-full bg-accent" />
+        <span aria-hidden className="absolute top-0 h-0.5 w-7 rounded-full bg-accent shadow-[0_0_8px_rgb(var(--c-accent))]" />
       )}
       <Icon name={icon} className="w-[22px] h-[22px]" />
-      <span className={cn('text-[10px] leading-none', active && 'font-medium')}>{label}</span>
+      <span className={cn('text-[11px] leading-none tracking-tight', active ? 'font-semibold' : 'font-medium')}>{label}</span>
     </Link>
   );
 }
@@ -93,15 +93,15 @@ function DockAction({
       type="button"
       onClick={onClick}
       className={cn(
-        'relative flex flex-col items-center gap-1 py-2.5 transition-colors',
-        active ? 'text-accent' : 'text-muted hover:text-content'
+        'relative flex flex-col items-center gap-1.5 py-2.5 transition-colors',
+        active ? 'text-accent' : 'text-white/70 hover:text-white'
       )}
     >
       {active && (
-        <span aria-hidden className="absolute top-0 h-0.5 w-7 rounded-full bg-accent" />
+        <span aria-hidden className="absolute top-0 h-0.5 w-7 rounded-full bg-accent shadow-[0_0_8px_rgb(var(--c-accent))]" />
       )}
       <Icon name={icon} className="w-[22px] h-[22px]" />
-      <span className={cn('text-[10px] leading-none', active && 'font-medium')}>{label}</span>
+      <span className={cn('text-[11px] leading-none tracking-tight', active ? 'font-semibold' : 'font-medium')}>{label}</span>
     </button>
   );
 }
