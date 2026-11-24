@@ -1,6 +1,21 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+/** 本地 .env 只给这个脚本用，不打印内容。GitHub Actions 仍走环境变量。 */
+try {
+  const envFile = await fs.readFile(path.resolve('.env'), 'utf8');
+  for (const line of envFile.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('=')) continue;
+    const idx = trimmed.indexOf('=');
+    const name = trimmed.slice(0, idx).trim();
+    const value = trimmed.slice(idx + 1).trim();
+    if (name && process.env[name] === undefined) process.env[name] = value;
+  }
+} catch {
+  /* 没有 .env 时用进程环境 */
+}
+
 /**
  * 每日片单同步。零依赖，只用 Node 20 原生 fetch。
  * 没有 TMDB_API_KEY 时不覆盖已有 catalog.json，本地预览继续用内置兜底数据。
@@ -31,8 +46,13 @@ if (!TMDB_KEY) {
 
 async function fetchTmdb(endpoint) {
   const sep = endpoint.includes('?') ? '&' : '?';
-  const url = `https://api.themoviedb.org/3/${endpoint}${sep}api_key=${TMDB_KEY}&language=zh-CN`;
-  const res = await fetch(url);
+  const bearer = TMDB_KEY.startsWith('eyJ');
+  const auth = bearer ? '' : `${sep}api_key=${encodeURIComponent(TMDB_KEY)}`;
+  const joiner = bearer ? sep : (auth ? '&' : sep);
+  const url = `https://api.themoviedb.org/3/${endpoint}${auth}${joiner}language=zh-CN`;
+  const res = await fetch(url, {
+    headers: bearer ? { Authorization: `Bearer ${TMDB_KEY}`, Accept: 'application/json' } : { Accept: 'application/json' },
+  });
   if (!res.ok) throw new Error(`TMDB 请求失败: ${endpoint} (${res.status})`);
   return res.json();
 }

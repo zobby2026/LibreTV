@@ -24,11 +24,14 @@ export async function GET(req: Request) {
       return NextResponse.json({ ...filterFallback(query), source: 'fallback' });
     }
     const { endpoint, params } = buildDiscover(query);
-    params.api_key = key;
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    // v4 读令牌是 JWT（eyJ 开头），必须放 Bearer；v3 Key 才走 api_key 查询参数。
+    if (key.startsWith('eyJ')) headers.Authorization = `Bearer ${key}`;
+    else params.api_key = key;
     const url = new URL(`https://api.themoviedb.org/3/${endpoint}`);
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
     try {
-      const res = await fetch(url, { headers: { Accept: 'application/json' } });
+      const res = await fetch(url, { headers });
       if (!res.ok) {
         return NextResponse.json({ ...filterFallback(query), source: 'fallback' });
       }
