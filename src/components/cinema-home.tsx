@@ -154,7 +154,12 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sourceOpen, setSourceOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [placeholder, setPlaceholder] = useState(PLACEHOLDERS[0]);
+  const activePlaceholders = useMemo(() => {
+    const list = catalog.placeholders;
+    return Array.isArray(list) && list.length > 0 ? list : PLACEHOLDERS;
+  }, []);
+  const [placeholder, setPlaceholder] = useState(activePlaceholders[0]);
+  const currentFullPlaceholderRef = useRef(activePlaceholders[0]);
   const railRef = useRef<HTMLDivElement>(null);
   const [quick, setQuick] = useState<CatalogItem | null>(null);
   const [quickCard, setQuickCard] = useState<DecisionCardData | null>(null);
@@ -204,9 +209,11 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
     let sIdx = 0;
     let cIdx = 0;
     let deleting = false;
+    currentFullPlaceholderRef.current = activePlaceholders[0] || '';
     const id = window.setInterval(() => {
       if (query) return;
-      const target = PLACEHOLDERS[sIdx];
+      const target = activePlaceholders[sIdx] || activePlaceholders[0] || '';
+      currentFullPlaceholderRef.current = target;
       if (!deleting) {
         cIdx += 1;
         setPlaceholder(target.slice(0, cIdx));
@@ -216,12 +223,13 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
         setPlaceholder(target.slice(0, Math.max(0, cIdx)));
         if (cIdx <= 0) {
           deleting = false;
-          sIdx = (sIdx + 1) % PLACEHOLDERS.length;
+          sIdx = (sIdx + 1) % activePlaceholders.length;
+          currentFullPlaceholderRef.current = activePlaceholders[sIdx];
         }
       }
     }, 110);
     return () => window.clearInterval(id);
-  }, [query]);
+  }, [query, activePlaceholders]);
 
   const [moodPage, setMoodPage] = useState(0);
   const [selectedMoods, setSelectedMoods] = useState<CatalogMood[]>([]);
@@ -340,6 +348,14 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
     });
   };
 
+  const handleSearchSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const text = query.trim() || currentFullPlaceholderRef.current || activePlaceholders[0];
+    if (!text) return;
+    setQuery(text);
+    startSearch(text);
+  };
+
   const openQuick = (movie: CatalogItem) => {
     setQuick(movie);
     const cached = getCachedDecisionCard(movie.t, movie.y);
@@ -429,7 +445,7 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
 
           <form
             className="aur ml-auto w-full max-w-md"
-            onSubmit={(e) => { e.preventDefault(); startSearch(query); }}
+            onSubmit={handleSearchSubmit}
           >
             <div className="flex items-center gap-2 rounded-[18.5px] bg-[#0d0f14] px-3.5 py-1.5">
               <span className="text-xs" style={{ color: 'var(--a)' }}>✦</span>
@@ -576,7 +592,7 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
               {/* 移动端悬浮极光搜索框（桌面端已在顶栏常驻） */}
               <form
                 className="aur absolute bottom-3 left-4 right-4 z-30 shadow-2xl lg:hidden"
-                onSubmit={(e) => { e.preventDefault(); startSearch(query); }}
+                onSubmit={handleSearchSubmit}
               >
                 <div className="flex items-center gap-2 rounded-[18.5px] bg-[#0d0f14] px-3.5 py-2.5">
                   <span className="text-sm" style={{ color: 'var(--a)' }}>✦</span>
@@ -907,10 +923,15 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
             <div className="relative z-10 px-4 pt-4 lg:px-8 lg:pt-6">
               <div className="mb-4 flex items-center gap-2">
                 <button type="button" className="glass rounded-full px-3 py-1.5 text-xs text-white/80 hover:bg-white/15" onClick={closeSearch}>‹ 返回</button>
-                <form className="aur flex-1" onSubmit={(e) => { e.preventDefault(); startSearch(query); }}>
+                <form className="aur flex-1" onSubmit={handleSearchSubmit}>
                   <div className="flex items-center gap-2 rounded-[18.5px] bg-[#0d0f14] px-3 py-2">
                     <span className="text-xs" style={{ color: 'var(--a)' }}>✦</span>
-                    <input value={query} onChange={(e) => setQuery(e.target.value)} className="flex-1 bg-transparent text-xs text-white focus:outline-none lg:text-sm" />
+                    <input
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder={placeholder}
+                      className="flex-1 bg-transparent text-xs text-white placeholder:text-white/40 focus:outline-none lg:text-sm"
+                    />
                     <button type="submit" className="rounded-lg px-3 py-1 text-xs font-medium text-[#08090b]" style={{ background: 'var(--a)' }}>搜索</button>
                   </div>
                 </form>

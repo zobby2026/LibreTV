@@ -268,10 +268,17 @@ function buildFallbackDailyCuration(hero) {
     },
   ];
 
-  return { editorials, moods };
+  const placeholders = [
+    `像《${topTitle}》一样停不下来的反转悬疑`,
+    `${dayLabel}晚上的电子布洛芬轻喜剧`,
+    '近期豆瓣口碑爆棚、后劲极大的佳片',
+    `除了《${secondTitle}》，再来部冷门高分片`,
+  ];
+
+  return { editorials, moods, placeholders };
 }
 
-/** 每日一次性调用 AI 生成 3 张热点「AI 策展笔记」与 2~3 张「今日热点心情卡」 */
+/** 每日一次性调用 AI 生成 3 张热点「AI 策展笔记」、2~3 张「今日热点心情卡」与 4~5 句「搜片示范」 */
 async function generateDailyCuration(hero, hotTopics) {
   const fallback = buildFallbackDailyCuration(hero);
   if (!AI_API_KEY) return fallback;
@@ -297,7 +304,8 @@ async function generateDailyCuration(hero, hotTopics) {
               '你是极简暗黑风格的私人电影策展人。结合今日日期、豆瓣热议影视与全网热搜话题，策划：\n'
               + '1. editorials：严格 3 张首页策展笔记（1张结合今日热点/豆瓣热议，1张结合今日星期/社会情绪，1张小众高分挖宝）。\n'
               + '2. moods：2 张带大号单个 Emoji 的「今日热点心情卡」。\n'
-              + '严格返回 JSON：{"editorials":[{"badge":"🔥 豆瓣今日热议","title":"18字以内吸睛标题","sub":"10字以内副标题","query":"给AI找片用的精准中文搜索描述"}],"moods":[{"emoji":"🔥","label":"4-5字情绪名","sub":"5-7字副标","query":"给AI找片用的精准中文搜索描述"}]}',
+              + '3. placeholders：4~5 句 14~22 字的当日搜片示范（结合当天热剧/上映新片、当天星期/情绪、豆瓣高分等，如：像《xxx》一样停不下来的反转悬疑、周x晚上的电子布洛芬轻喜剧）。\n'
+              + '严格返回 JSON：{"editorials":[{"badge":"🔥 豆瓣今日热议","title":"18字以内吸睛标题","sub":"10字以内副标题","query":"给AI找片用的精准中文搜索描述"}],"moods":[{"emoji":"🔥","label":"4-5字情绪名","sub":"5-7字副标","query":"给AI找片用的精准中文搜索描述"}],"placeholders":["示范1","示范2","示范3","示范4"]}',
           },
           {
             role: 'user',
@@ -337,9 +345,15 @@ async function generateDailyCuration(hero, hotTopics) {
         slot: 'any',
       }));
 
+    const rawPlaceholders = Array.isArray(parsed.placeholders) ? parsed.placeholders : [];
+    const placeholders = rawPlaceholders
+      .map((p) => String(p).trim().replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').slice(0, 30))
+      .filter((p) => p.length >= 8);
+
     return {
       editorials: editorials.length === 3 ? editorials : fallback.editorials,
       moods: moods.length >= 2 ? moods : fallback.moods,
+      placeholders: placeholders.length >= 3 ? placeholders : fallback.placeholders,
     };
   } catch (err) {
     console.warn('每日热点策展生成失败，使用兜底策展:', err instanceof Error ? err.message : err);
@@ -474,11 +488,12 @@ async function main() {
     boards: result.boards,
     editorials: daily.editorials,
     moods: daily.moods,
+    placeholders: daily.placeholders,
   };
 
   await fs.mkdir(path.dirname(outPath), { recursive: true });
   await fs.writeFile(outPath, JSON.stringify(payload, null, 2), 'utf-8');
-  console.log(`已成功更新 public/data/catalog.json（来源：${result.source}，策展笔记 ${daily.editorials.length} 张，热点心情 ${daily.moods.length} 张）`);
+  console.log(`已成功更新 public/data/catalog.json（来源：${result.source}，策展笔记 ${daily.editorials.length} 张，热点心情 ${daily.moods.length} 张，搜片示范 ${daily.placeholders.length} 句）`);
 }
 
 main().catch((err) => {

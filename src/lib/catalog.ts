@@ -51,6 +51,7 @@ export interface CatalogFile {
   boards: CatalogBoard[];
   editorials?: CatalogEditorial[];
   moods?: CatalogMood[];
+  placeholders?: string[];
 }
 
 export const catalog = catalogJson as CatalogFile;
