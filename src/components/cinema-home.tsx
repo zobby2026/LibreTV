@@ -634,7 +634,7 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
                       type="button"
                       aria-pressed={picked}
                       onClick={() => toggleMood(mood)}
-                      className={`group relative flex h-[112px] w-[124px] flex-shrink-0 flex-col justify-between overflow-hidden rounded-2xl border p-3 text-left transition-all hover:-translate-y-0.5 active:scale-95 lg:w-auto ${
+                      className={`group relative flex h-[116px] w-[120px] flex-shrink-0 flex-col justify-between overflow-hidden rounded-2xl border p-3 text-left transition-all hover:-translate-y-0.5 active:scale-95 lg:w-auto ${
                         picked ? 'shadow-lg' : 'border-white/10'
                       }`}
                       style={{
@@ -645,7 +645,7 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
                     >
                       <div className="flex items-start justify-between">
                         <span
-                          className={`text-[30px] leading-none transition-transform duration-200 group-hover:scale-110 ${
+                          className={`text-[42px] leading-none transition-transform duration-200 group-hover:scale-110 ${
                             picked ? 'scale-110' : ''
                           }`}
                           role="img"
@@ -734,7 +734,7 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
                       key={board.id}
                       type="button"
                       onClick={() => setFullBoard(board)}
-                      className="group relative flex aspect-[4/5] w-[156px] flex-shrink-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/10 p-3.5 text-left transition-all duration-300 hover:-translate-y-1 hover:border-white/20 active:scale-95 lg:aspect-[16/10] lg:w-auto lg:p-4.5"
+                      className="group relative flex aspect-[1/1] w-[132px] flex-shrink-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/10 p-3 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20 active:scale-95 lg:aspect-[16/9] lg:w-auto lg:p-4"
                       style={{ background: top ? `linear-gradient(145deg, ${top.a}33, ${top.b} 70%)` : '#0d0e12' }}
                     >
                       {/* 背景海报层 */}
@@ -745,7 +745,7 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
                             loading="lazy"
                             decoding="async"
                             draggable={false}
-                            className="h-full w-full object-cover opacity-55 transition-transform duration-500 group-hover:scale-105"
+                            className="h-full w-full object-cover opacity-50 transition-transform duration-500 group-hover:scale-105"
                           />
                           {/* 多层渐变暗黑遮罩 */}
                           <div
@@ -753,7 +753,7 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
                           />
                           {/* 微妙主题色顶角光 */}
                           <div
-                            className="pointer-events-none absolute -right-12 -top-12 h-28 w-28 rounded-full opacity-40 blur-2xl"
+                            className="pointer-events-none absolute -right-12 -top-12 h-24 w-24 rounded-full opacity-35 blur-2xl"
                             style={{ background: top.a }}
                           />
                         </div>
@@ -762,27 +762,27 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
                       {/* 顶部：榜单名称与 TOP 10 胶囊 */}
                       <div className="relative z-10 flex w-full items-start justify-between gap-1">
                         <div>
-                          <span className="block font-serif text-sm font-bold leading-tight text-[#f3efe6] lg:text-base">
+                          <span className="block font-serif text-[13px] font-bold leading-tight text-[#f3efe6] lg:text-sm">
                             {board.name}
                           </span>
-                          <span className="mt-0.5 block text-[10px] text-white/60 lg:text-xs">
+                          <span className="mt-0.5 block text-[9px] text-white/60 lg:text-[10px]">
                             {board.sub}
                           </span>
                         </div>
-                        <span className="flex items-center gap-0.5 rounded-full border border-white/15 bg-black/45 px-2 py-0.5 font-mono text-[9px] text-[#ffd27a] backdrop-blur-md">
+                        <span className="flex items-center gap-0.5 rounded-full border border-white/15 bg-black/45 px-1.5 py-0.5 font-mono text-[8px] text-[#ffd27a] backdrop-blur-md">
                           TOP 10 ›
                         </span>
                       </div>
 
                       {/* 底部：NO.1 金色标签与第一名片名 */}
-                      <div className="relative z-10 w-full pt-4">
-                        <div className="flex items-center gap-1.5 font-mono text-[10px] tracking-wider text-[#ffd27a]">
-                          <span className="rounded bg-[#ffd27a]/20 px-1 py-0.5 text-[9px] font-bold text-[#ffd27a]">
+                      <div className="relative z-10 w-full pt-2">
+                        <div className="flex items-center gap-1 font-mono text-[9px] tracking-wider text-[#ffd27a]">
+                          <span className="rounded bg-[#ffd27a]/20 px-1 py-0.5 text-[8px] font-bold text-[#ffd27a]">
                             NO.1
                           </span>
                           {top?.r ? <span>★ {top.r}</span> : null}
                         </div>
-                        <div className="mt-1 truncate text-xs font-semibold text-[#f3efe6] drop-shadow-sm lg:text-sm">
+                        <div className="mt-0.5 truncate text-[11px] font-semibold text-[#f3efe6] drop-shadow-sm lg:text-xs">
                           {top?.t || '每日凌晨更新'}
                         </div>
                       </div>
