@@ -22,6 +22,7 @@ import { ContinueWatching } from './continue-watching';
 import { CurateStage, type StageMovieStatus } from './curate-stage';
 import { DecisionCard } from './decision-card';
 import { FestivalResult, type FestivalMovieItem } from './festival-result';
+import { AccountPanel } from './account-panel';
 import { SourceManagerDrawer } from './source-manager';
 import { useToast } from './toast';
 import type { SearchResultItem, SourceConfig } from '@/lib/types';
@@ -154,6 +155,7 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
   const [fullBoard, setFullBoard] = useState<(typeof boards)[number] | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sourceOpen, setSourceOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const [query, setQuery] = useState('');
   const activePlaceholders = useMemo(() => {
     const list = catalog.placeholders;
@@ -1162,7 +1164,7 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
             </div>
 
             {/* 账号与角色区 */}
-            <div className="mb-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+            <div className="mb-4 flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] p-3.5">
               <div>
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <span>{verified && user ? user.username : '未登录'}</span>
@@ -1184,16 +1186,28 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
                 </div>
               </div>
               {verified ? (
-                <button
-                  type="button"
-                  className="rounded-xl bg-white/10 px-3 py-1.5 text-xs text-white/80 hover:bg-white/20"
-                  onClick={() => {
-                    setSettingsOpen(false);
-                    void logout();
-                  }}
-                >
-                  退出
-                </button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    className="rounded-xl border border-white/15 bg-white/10 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-white/20 active:scale-95"
+                    onClick={() => {
+                      setSettingsOpen(false);
+                      setAccountOpen(true);
+                    }}
+                  >
+                    {isAdmin ? '邀请码' : '账号'}
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-xl bg-white/5 px-2 py-1.5 text-xs text-white/50 hover:bg-white/10 hover:text-white"
+                    onClick={() => {
+                      setSettingsOpen(false);
+                      void logout();
+                    }}
+                  >
+                    退出
+                  </button>
+                </div>
               ) : (
                 <button
                   type="button"
@@ -1266,20 +1280,38 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
 
             {/* 管理员专属入口 */}
             {isAdmin && (
-              <div className="mt-4 border-t border-white/10 pt-4">
-                <div className="mb-2 font-mono text-[10px] uppercase tracking-wider" style={{ color: 'var(--a)' }}>
+              <div className="mt-4 space-y-2 border-t border-white/10 pt-4">
+                <div className="mb-1.5 font-mono text-[10px] uppercase tracking-wider" style={{ color: 'var(--a)' }}>
                   管理员控制台
                 </div>
                 <button
                   type="button"
-                  className="w-full rounded-xl py-2.5 text-xs font-semibold text-[#08090b] active:scale-[0.99]"
+                  className="flex w-full items-center justify-between rounded-xl py-2.5 px-4 text-left text-xs font-semibold text-[#08090b] transition active:scale-[0.99]"
                   style={{ background: 'var(--a)' }}
+                  onClick={() => {
+                    setSettingsOpen(false);
+                    setAccountOpen(true);
+                  }}
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="text-sm">🎟️</span>
+                    <span>生成与管理邀请码 / 用户列表</span>
+                  </span>
+                  <span className="font-mono text-sm font-bold">›</span>
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-left text-xs font-medium text-[#f3efe6] transition hover:bg-white/10 active:scale-[0.99]"
                   onClick={() => {
                     setSettingsOpen(false);
                     setSourceOpen(true);
                   }}
                 >
-                  管理点播源、直播订阅与用户邀请码 ›
+                  <span className="flex items-center gap-2">
+                    <span className="text-sm">📡</span>
+                    <span>管理点播片源与直播订阅</span>
+                  </span>
+                  <span className="font-mono text-white/40">›</span>
                 </button>
               </div>
             )}
@@ -1288,6 +1320,7 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
       )}
 
       <SourceManagerDrawer open={sourceOpen} onClose={() => setSourceOpen(false)} />
+      <AccountPanel open={accountOpen} onClose={() => setAccountOpen(false)} />
 
       {/* 移动端底部深色毛玻璃 Dock（桌面端隐藏） */}
       {!searchOpen && !active && !fullBoard && (
