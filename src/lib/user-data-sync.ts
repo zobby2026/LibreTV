@@ -29,8 +29,11 @@ const SNAPSHOT_VERSION = 1;
 /** 记住当前浏览器里的数据归谁，换账号登录时据此判断「要不要清空」 */
 const OWNER_KEY = 'libretv-data-owner';
 
-/** 上传防抖：播放中进度每几秒变一次，合并后再发 */
-const PUSH_DEBOUNCE_MS = 5000;
+/** 上传防抖：设置、历史与搜索记录合并后再发，避免高频触发 Cloudflare KV 写入上限 */
+const PUSH_DEBOUNCE_MS = 30_000;
+
+/** 播放进度高频写入节流：本地 IndexedDB 仍每 5s 实时保存，远端 KV 最多每 2 分钟同步一次（切后台/关闭页面仍立即冲刷） */
+const PROGRESS_PUSH_INTERVAL_MS = 120_000;
 
 /** 共享配置字段：不属于个人快照 */
 const SHARED_FIELDS = ['customAPIs', 'subscriptions', 'liveSubscriptions'] as const;
@@ -212,13 +215,22 @@ export async function applySharedConfig(): Promise<void> {
 
 // —— 上传 ——
 
-function schedulePush(): void {
+function schedulePush(delayMs = PUSH_DEBOUNCE_MS): void {
   if (!activeUserId) return;
   if (pushTimer) clearTimeout(pushTimer);
   pushTimer = setTimeout(() => {
     pushTimer = null;
     void pushNow();
-  }, PUSH_DEBOUNCE_MS);
+  }, delayMs);
+}
+
+/** 播放进度属于高频写入：若已有定时器在排队则不重置，确保最多每 PROGRESS_PUSH_INTERVAL_MS 同步一次 */
+function scheduleProgressPush(): void {
+  if (!activeUserId || pushTimer) return;
+  pushTimer = setTimeout(() => {
+    pushTimer = null;
+    void pushNow();
+  }, PROGRESS_PUSH_INTERVAL_MS);
 }
 
 async function pushNow(): Promise<void> {
@@ -264,11 +276,14 @@ function startWatching(): void {
       // 用 Dexie 的表级 hook 标脏：观看历史/进度/搜索记录的任何写入都会触发同步，
       // 不必在每个 db 函数里手工标脏，也不用改 db.ts 的十几个调用点。
       // hook 是同步回调，标脏只排一个定时器，不会拖慢写入。
-      for (const table of [db.history, db.progress, db.searchHistory]) {
+      for (const table of [db.history, db.searchHistory]) {
         table.hook('creating', () => schedulePush());
         table.hook('updating', () => schedulePush());
         table.hook('deleting', () => schedulePush());
       }
+      db.progress.hook('creating', () => scheduleProgressPush());
+      db.progress.hook('updating', () => scheduleProgressPush());
+      db.progress.hook('deleting', () => schedulePush());
       dexieHooked = true;
     } catch {
       // 极端情况下 hook 注册失败：退回只同步设置，不影响本地功能
