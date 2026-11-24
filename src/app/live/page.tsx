@@ -241,7 +241,7 @@ function LiveContent() {
                     {sources.length === 0
                       ? liveEnvSources.length + liveSubscriptions.length > 0
                         ? '所有直播源均已停用，请在设置中勾选启用'
-                        : '请先在设置中添加直播源（M3U 订阅）'
+                        : '直播源未配置'
                       : playlistsQuery.isLoading
                         ? '频道列表加载中...'
                         : '从右侧选择一个频道开始观看'}

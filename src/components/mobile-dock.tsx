@@ -1,11 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Icon, type IconName } from './icon';
-import { HistoryPanel } from './history-panel';
 import { SourceManagerDrawer } from './source-manager';
 
 /**
@@ -17,11 +16,13 @@ import { SourceManagerDrawer } from './source-manager';
  */
 export function MobileDock() {
   const pathname = usePathname();
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const searchParams = useSearchParams();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // 播放页是全屏体验，隐藏 Dock（同时避免误触返回打断播放）
+  // 播放页是全屏体验，隐藏 Dock。影展首页自带底部导航，避免叠两层。
   if (pathname.startsWith('/watch')) return null;
+  if (pathname === '/' && !searchParams.get('s')) return null;
+  if (pathname.startsWith('/library')) return null;
 
   return (
     <>
@@ -29,15 +30,10 @@ export function MobileDock() {
         aria-label="主导航"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 backdrop-blur-2xl lg:hidden"
       >
-        <div className="mx-auto grid max-w-lg grid-cols-4 pb-[env(safe-area-inset-bottom)]">
-          <DockLink href="/" active={pathname === '/'} icon="home" label="发现" />
+        <div className="mx-auto grid max-w-[480px] grid-cols-4 pb-[env(safe-area-inset-bottom)]">
+          <DockLink href="/" active={pathname === '/'} icon="home" label="影展" />
+          <DockLink href="/library" active={pathname.startsWith('/library')} icon="grid" label="片库" />
           <DockLink href="/live" active={pathname.startsWith('/live')} icon="tv" label="直播" />
-          <DockAction
-            active={false}
-            icon="grid"
-            label="片库"
-            onClick={() => setHistoryOpen(true)}
-          />
           <DockAction
             active={false}
             icon="gear"
@@ -47,7 +43,6 @@ export function MobileDock() {
         </div>
       </nav>
 
-      <HistoryPanel open={historyOpen} onClose={() => setHistoryOpen(false)} />
       <SourceManagerDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </>
   );
