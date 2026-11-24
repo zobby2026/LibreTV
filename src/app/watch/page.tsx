@@ -35,6 +35,7 @@ import {
   db,
 } from '@/lib/db';
 import { cn } from '@/lib/utils';
+import { DecisionCard } from '@/components/decision-card';
 
 /**
  * 播放页（唯一入口，替代旧版 watch.html → player.html 跳转链）。
@@ -359,6 +360,15 @@ function WatchContent() {
                 </div>
               )}
             </div>
+
+            {videoTitle && videoTitle !== '未知视频' && (
+              <DecisionCard
+                title={videoTitle}
+                year={detailQuery.data?.videoInfo?.year}
+                overview={detailQuery.data?.videoInfo?.desc}
+                compact
+              />
+            )}
 
             {/* 操作栏 */}
             <div className="flex flex-wrap items-center gap-2 mt-3">

@@ -13,6 +13,9 @@ vitest-results.json
 
 # 运行时用户数据（账号、邀请码、个人数据、会话密钥）：必须挂卷，不能入库
 data/
+# 每日影展片单是构建产物，要进仓库；没有 TMDB key 时也靠它预览
+!public/data/
+!public/data/catalog.json
 
 # AI 工具产物（本机会话/缓存数据，不入库）
 .mimosa/

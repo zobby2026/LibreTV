@@ -19,6 +19,7 @@ import { EmptyState } from '@/components/states';
 import { Icon } from '@/components/icon';
 import { SiteFooter } from '@/components/site-footer';
 import { SITE_NAME } from '@/lib/brand';
+import { CinemaHome } from '@/components/cinema-home';
 
 /**
  * 首页：搜索（URL ?s= 驱动，可后退/分享）+ 豆瓣推荐。
@@ -165,6 +166,8 @@ function HomeContent() {
   const [visibleCount, setVisibleCount] = useState(RESULT_PAGE_SIZE);
   const visibleGroups = useMemo(() => groups.slice(0, visibleCount), [groups, visibleCount]);
   useEffect(() => setVisibleCount(RESULT_PAGE_SIZE), [groups]);
+
+  if (!urlQuery) return <CinemaHome />;
 
   return (
     <div className="min-h-screen flex flex-col">
