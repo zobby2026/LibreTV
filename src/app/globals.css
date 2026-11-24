@@ -383,6 +383,194 @@ body {
     background: radial-gradient(80px circle at var(--mx, 50%) var(--my, 40%), rgba(255,210,122,.28), transparent 70%);
   }
 }
+/* AI 影展筹备舞台与展厅走廊纯 CSS 动效（零第三方库） */
+.stage-camera-track {
+  transition: transform 760ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+@keyframes stage-envelope-open {
+  0% { transform: scaleY(1); }
+  100% { transform: scaleY(-0.55); opacity: 0.7; }
+}
+.stage-envelope-flap {
+  transform-origin: 130px 22px;
+  animation: stage-envelope-open 700ms ease-out 180ms forwards;
+}
+
+@keyframes stage-ticket-rise {
+  0% { transform: translateY(34px) scale(0.95); opacity: 0.25; }
+  100% { transform: translateY(-6px) scale(1); opacity: 1; }
+}
+.stage-ticket-rise {
+  animation: stage-ticket-rise 780ms cubic-bezier(0.22, 1, 0.36, 1) 180ms both;
+}
+
+@keyframes stage-keyword-pop {
+  0% { transform: scale(0.85); opacity: 0; }
+  65% { transform: scale(1.06); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.stage-keyword-ring {
+  animation: stage-keyword-pop 420ms ease-out both;
+}
+
+@keyframes stage-spotlight {
+  0% { transform: rotate(-18deg); opacity: 0.35; }
+  50% { transform: rotate(10deg); opacity: 0.95; }
+  100% { transform: rotate(0deg); opacity: 0.85; }
+}
+.stage-spotlight-sweep {
+  transform-origin: 50% 0%;
+  animation: stage-spotlight 1400ms ease-in-out forwards;
+}
+
+@keyframes stage-swatch-in {
+  0% { transform: translateY(22px) scale(0.84); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+.stage-swatch-magnet {
+  animation: stage-swatch-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes stage-scan-sweep {
+  0% { transform: translateX(-10%); opacity: 0; }
+  15% { opacity: 0.9; }
+  85% { opacity: 0.9; }
+  100% { transform: translateX(720%); opacity: 0; }
+}
+.stage-scanline {
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--a) 55%, transparent), transparent);
+  animation: stage-scan-sweep 1250ms ease-in-out infinite;
+}
+
+@keyframes stage-reel {
+  to { transform: rotate(360deg); }
+}
+.stage-reel-spin {
+  animation: stage-reel 1.8s linear infinite;
+}
+
+@keyframes stage-beam {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 0.95; }
+}
+.stage-beam-flicker {
+  animation: stage-beam 320ms ease-in-out infinite;
+}
+
+@keyframes stage-stamp {
+  0% { transform: scale(1.45); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.stage-stamp-in {
+  animation: stage-stamp 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes stage-cut-fall {
+  0% { transform: translateY(0) rotate(0deg); }
+  100% { transform: translateY(8px) rotate(-4deg); }
+}
+.stage-film-cut {
+  animation: stage-cut-fall 520ms ease-out forwards;
+}
+
+@keyframes curtain-open-left {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+@keyframes curtain-open-right {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(100%); }
+}
+.stage-curtain-left {
+  animation: curtain-open-left 880ms cubic-bezier(0.7, 0, 0.25, 1) 120ms forwards;
+}
+.stage-curtain-right {
+  animation: curtain-open-right 880ms cubic-bezier(0.7, 0, 0.25, 1) 120ms forwards;
+}
+
+@keyframes opening-title-press {
+  0% { transform: scale(1.12); opacity: 0; }
+  45% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.98); opacity: 0.96; }
+}
+.stage-opening-title {
+  animation: opening-title-press 920ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* 开幕海报胶片齿孔边框 */
+.film-perforations {
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.7) 0 10px,
+    transparent 10px 22px
+  );
+}
+
+/* 展厅走廊 3D 透视与翻面卡片 */
+.corridor-perspective {
+  perspective: 1100px;
+}
+.flip-card-scene {
+  perspective: 1000px;
+}
+.flip-card-inner {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.flip-card-inner.is-flipped {
+  transform: rotateY(180deg);
+}
+.flip-card-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.flip-card-back {
+  transform: rotateY(180deg);
+}
+
+/* 锯齿票根两侧缺口 */
+.ticket-stub::before,
+.ticket-stub::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  background: #08090b;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 2;
+}
+.ticket-stub::before { left: -7px; }
+.ticket-stub::after { right: -7px; }
+
 @media (prefers-reduced-motion: reduce) {
-  .aur, .step-ring-active { animation: none; }
+  .aur,
+  .step-ring-active,
+  .stage-envelope-flap,
+  .stage-ticket-rise,
+  .stage-keyword-ring,
+  .stage-spotlight-sweep,
+  .stage-swatch-magnet,
+  .stage-scanline,
+  .stage-reel-spin,
+  .stage-beam-flicker,
+  .stage-stamp-in,
+  .stage-film-cut,
+  .stage-curtain-left,
+  .stage-curtain-right,
+  .stage-opening-title {
+    animation: none !important;
+  }
+  .stage-camera-track,
+  .flip-card-inner {
+    transition: none !important;
+  }
 }

@@ -9,10 +9,19 @@ import { isInDisabledSubscription, isSourceDisabled, resolveSource, useAppStore 
 import { buildWatchUrl, validateSourceUrl } from '@/lib/utils';
 import { SITE_NAME } from '@/lib/brand';
 import { fetchDecisionCardCached, getCachedDecisionCard, type DecisionCardData } from '@/lib/decision-card-cache';
+import {
+  getNextEditionNumber,
+  matchCuratePreset,
+  type CurateMeta,
+  type CuratePick,
+  type CuratorNotes,
+} from '@/lib/curate-presets';
 import { useAuth } from './auth';
 import { CinemaImg } from './cinema-img';
 import { ContinueWatching } from './continue-watching';
+import { CurateStage, type StageMovieStatus } from './curate-stage';
 import { DecisionCard } from './decision-card';
+import { FestivalResult, type FestivalMovieItem } from './festival-result';
 import { SourceManagerDrawer } from './source-manager';
 import { useToast } from './toast';
 import type { SearchResultItem, SourceConfig } from '@/lib/types';
@@ -47,15 +56,7 @@ const PALETTE = [
 const FASTEST_SOURCES_KEY = 'libretv_fastest_sources';
 const SOURCE_TIMEOUT_MS = 3000;
 
-interface Pick { t: string; y: number; w: string }
-interface HitItem extends Pick {
-  s: number;
-  match: number;
-  poster: string;
-  backdrop?: string;
-  a: string;
-  hits: SearchResultItem[];
-}
+type HitItem = FestivalMovieItem;
 
 const CATALOG_FLAT = flattenCatalog(catalog);
 
@@ -167,13 +168,30 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
   const longTimer = useRef<number | null>(null);
   const longPressed = useRef(false);
 
+  const defaultPreset = useMemo(() => matchCuratePreset(''), []);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [stageActive, setStageActive] = useState(false);
   const [searchStep, setSearchStep] = useState(-1);
-  const [stepperExpanded, setStepperExpanded] = useState(false);
-  const [intro, setIntro] = useState('');
+  const [festivalEdition, setFestivalEdition] = useState(1);
+  const [festivalMeta, setFestivalMeta] = useState<CurateMeta>(() => ({
+    festivalTitle: defaultPreset.festivalTitle,
+    subtitle: defaultPreset.subtitle,
+    themeColor: defaultPreset.themeColor,
+    tags: defaultPreset.tags,
+    totalCatalog: CATALOG_FLAT.length || 128,
+  }));
+  const [festivalNotes, setFestivalNotes] = useState<CuratorNotes>(defaultPreset.notes);
+  const [festivalCopy, setFestivalCopy] = useState({
+    openingLine: defaultPreset.openingLine,
+    withdrawLine: defaultPreset.withdrawLine,
+  });
+  const [festivalAccent, setFestivalAccent] = useState<string | null>(null);
+  const [stageMovies, setStageMovies] = useState<StageMovieStatus[]>([]);
+  const [pickedCount, setPickedCount] = useState(5);
   const [results, setResults] = useState<HitItem[]>([]);
   const [filteredOut, setFilteredOut] = useState<string[]>([]);
   const curateRunId = useRef(0);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const [active, setActive] = useState<CatalogItem | HitItem | null>(null);
   const [hits, setHits] = useState<SearchResultItem[]>([]);
@@ -189,7 +207,7 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
   const liveCount = useAppStore((s) => s.liveEnvSources.length + s.liveSubscriptions.length);
 
   const searchLead = results[0];
-  const accent = (searchOpen && searchLead?.a) || hero[heroIdx]?.a || '#e86f51';
+  const accent = (searchOpen && (festivalAccent || searchLead?.a)) || hero[heroIdx]?.a || '#e86f51';
 
   useEffect(() => {
     document.documentElement.style.setProperty('--a', accent);
@@ -319,17 +337,56 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
     const text = q.trim();
     if (!text) return;
     const runId = ++curateRunId.current;
+    const preset = matchCuratePreset(text);
     setQuery(text);
     setSearchOpen(true);
+    setStageActive(true);
     setSearchStep(0);
-    setStepperExpanded(false);
-    setIntro('');
+    setFestivalEdition(getNextEditionNumber());
+    setFestivalMeta({
+      festivalTitle: preset.festivalTitle,
+      subtitle: preset.subtitle,
+      themeColor: preset.themeColor,
+      tags: preset.tags,
+      totalCatalog: CATALOG_FLAT.length || 128,
+    });
+    setFestivalNotes(preset.notes);
+    setFestivalCopy({
+      openingLine: preset.openingLine,
+      withdrawLine: preset.withdrawLine,
+    });
+    setFestivalAccent(preset.themeColor);
+    setStageMovies([]);
+    setPickedCount(5);
     setResults([]);
     setFilteredOut([]);
+
     void runCurate(text, selectedSources, yellowFilter, {
       isStale: () => curateRunId.current !== runId,
-      onStep: setSearchStep,
-      onIntro: setIntro,
+      onStep: (stepIdx) => setSearchStep((prev) => Math.max(prev, stepIdx)),
+      onMeta: (meta) => {
+        setFestivalMeta((prev) => ({
+          festivalTitle: meta.festivalTitle || prev.festivalTitle,
+          subtitle: meta.subtitle || prev.subtitle,
+          themeColor: meta.themeColor || prev.themeColor,
+          tags: meta.tags?.length ? meta.tags : prev.tags,
+          totalCatalog: meta.totalCatalog || prev.totalCatalog,
+        }));
+        if (meta.themeColor) setFestivalAccent(meta.themeColor);
+      },
+      onNotes: (notes) => setFestivalNotes(notes),
+      onPickedCount: (n) => setPickedCount(n),
+      onMovieStatus: (title, status) => {
+        setStageMovies((prev) => {
+          const idx = prev.findIndex((m) => m.title === title);
+          if (idx >= 0) {
+            const next = [...prev];
+            next[idx] = { title, status };
+            return next;
+          }
+          return [...prev, { title, status }];
+        });
+      },
       onUpsertResult: (item) => {
         setResults((prev) => {
           const idx = prev.findIndex((p) => p.t === item.t);
@@ -397,7 +454,14 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
 
   const closeSearch = () => {
     curateRunId.current += 1;
+    setStageActive(false);
     setSearchOpen(false);
+    setFestivalAccent(null);
+  };
+
+  const resetFestival = () => {
+    setQuery('');
+    window.setTimeout(() => searchInputRef.current?.focus(), 60);
   };
 
   return (
@@ -921,62 +985,58 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
             </div>
 
             <div className="relative z-10 px-4 pt-4 lg:px-8 lg:pt-6">
-              <div className="mb-4 flex items-center gap-2">
+              <div className="mb-5 flex items-center gap-2">
                 <button type="button" className="glass rounded-full px-3 py-1.5 text-xs text-white/80 hover:bg-white/15" onClick={closeSearch}>‹ 返回</button>
                 <form className="aur flex-1" onSubmit={handleSearchSubmit}>
                   <div className="flex items-center gap-2 rounded-[18.5px] bg-[#0d0f14] px-3 py-2">
                     <span className="text-xs" style={{ color: 'var(--a)' }}>✦</span>
                     <input
+                      ref={searchInputRef}
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder={placeholder}
                       className="flex-1 bg-transparent text-xs text-white placeholder:text-white/40 focus:outline-none lg:text-sm"
                     />
-                    <button type="submit" className="rounded-lg px-3 py-1 text-xs font-medium text-[#08090b]" style={{ background: 'var(--a)' }}>搜索</button>
+                    <button type="submit" className="rounded-lg px-3 py-1 text-xs font-medium text-[#08090b]" style={{ background: 'var(--a)' }}>布展</button>
                   </div>
                 </form>
               </div>
 
-              <SearchStepper
-                step={searchStep}
-                filteredCount={filteredOut.length}
-                expanded={stepperExpanded}
-                onToggle={() => setStepperExpanded((v) => !v)}
+              <FestivalResult
+                query={query}
+                edition={festivalEdition}
+                meta={festivalMeta}
+                notes={festivalNotes}
+                openingLine={festivalCopy.openingLine}
+                withdrawLine={festivalCopy.withdrawLine}
+                results={results}
+                filteredOut={filteredOut}
+                verifying={searchStep < 4}
+                onActiveColorChange={(color) => setFestivalAccent(color)}
+                onPlayNow={(item) => {
+                  if (item.hits[0]) play(item.hits[0]);
+                  else void openDetail(item);
+                }}
+                onOpenDetail={(item) => void openDetail(item)}
+                onResetFestival={resetFestival}
+                onToast={(msg) => toast(msg, 'success')}
               />
-
-              {intro && (
-                <div className="glass mb-4 rounded-2xl p-3.5 lg:p-4">
-                  <div className="mb-1 font-mono text-[10px] uppercase tracking-wider" style={{ color: 'var(--a)' }}>AI 策展人导语</div>
-                  <p className="text-xs leading-relaxed text-[#f3efe6]/90 lg:text-sm">{intro}</p>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                {results.map((item) => (
-                  <button key={item.t} type="button" className="glass flex w-full gap-3 rounded-2xl p-3 text-left transition hover:bg-white/10 active:scale-[0.99]" onClick={() => void openDetail(item)}>
-                    <div className="h-28 w-20 flex-shrink-0 overflow-hidden rounded-xl bg-white/5" style={{ background: `linear-gradient(160deg, ${item.a}44, #14161d)` }}>
-                      {item.poster && (
-                        <CinemaImg src={item.poster} loading="lazy" decoding="async" className="h-full w-full object-cover" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className="truncate font-serif text-base font-bold">{item.t}</h3>
-                        <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[11px]" style={{ color: 'var(--a)' }}>{item.match}%</span>
-                      </div>
-                      <div className="mt-0.5 font-mono text-[10px] text-white/50">{item.y || '精选'} · {item.s} 条可用线路</div>
-                      <p className="mt-1.5 line-clamp-2 text-xs text-white/75">{item.w}</p>
-                      <span className="mt-2 inline-block rounded-full px-3 py-1 text-[11px] font-medium text-[#08090b]" style={{ background: 'var(--a)' }}>▶ 立即播放</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-              {filteredOut.length > 0 && (
-                <p className="mt-4 text-center font-mono text-[11px] text-white/40">已过滤无源：{filteredOut.join('、')}</p>
-              )}
             </div>
           </div>
         </div>
+      )}
+
+      {searchOpen && stageActive && (
+        <CurateStage
+          query={query}
+          sseStep={searchStep}
+          meta={festivalMeta}
+          pickedCount={pickedCount}
+          verifiedMovies={stageMovies}
+          openingLine={festivalCopy.openingLine}
+          onSkip={() => setStageActive(false)}
+          onOpeningComplete={() => setStageActive(false)}
+        />
       )}
 
       {/* 影片详情弹窗（手机全屏，桌面宽屏居中卡片） */}
@@ -1277,137 +1337,6 @@ function SettingToggle({
   );
 }
 
-const STEP_META = [
-  { id: 'intent', label: '理解意图' },
-  { id: 'mood', label: '情绪标签' },
-  { id: 'match', label: '匹配片库' },
-  { id: 'verify', label: '校验片源' },
-] as const;
-
-/** 极简横向时间轴步进器：4 个圆形 SVG 节点 + 脉冲动效 + 完成后自动折叠为紧凑胶囊 */
-function SearchStepper({
-  step,
-  filteredCount,
-  expanded,
-  onToggle,
-}: {
-  step: number;
-  filteredCount: number;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  const finished = step >= 4;
-
-  if (finished && !expanded) {
-    return (
-      <div className="mb-3 flex justify-center">
-        <button
-          type="button"
-          onClick={onToggle}
-          className="glass inline-flex items-center gap-1.5 rounded-full px-3 py-1 font-mono text-[11px] text-white/80 transition-all hover:text-white active:scale-95"
-        >
-          <span style={{ color: 'var(--a)' }}>✦</span>
-          <span>
-            已完成 4 步策展
-            {filteredCount > 0 ? ` · 过滤无源 ${filteredCount} 部` : ' · 片源已就绪'}
-          </span>
-          <span className="text-white/40">▾</span>
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-3 transition-all duration-300">
-      <div className="relative flex items-start justify-between">
-        <div className="pointer-events-none absolute left-[12.5%] right-[12.5%] top-[14px] h-[1.5px] bg-white/10" />
-        <div
-          className="pointer-events-none absolute left-[12.5%] top-[14px] h-[1.5px] transition-all duration-500"
-          style={{
-            background: 'var(--a)',
-            width: `${Math.max(0, Math.min(3, step)) * 25}%`,
-          }}
-        />
-        {STEP_META.map((item, idx) => {
-          const done = step > idx;
-          const active = step === idx;
-          return (
-            <div key={item.id} className="relative z-10 flex w-1/4 flex-col items-center">
-              <div
-                className={`flex h-7 w-7 items-center justify-center rounded-full border transition-all duration-300 ${
-                  active ? 'step-ring-active border-transparent' : done ? 'border-transparent' : 'border-white/15 bg-[#0d0f14] text-white/35'
-                }`}
-                style={
-                  done
-                    ? { background: 'var(--a)', color: '#08090b' }
-                    : active
-                      ? { background: '#14161d', borderColor: 'var(--a)', color: 'var(--a)' }
-                      : undefined
-                }
-              >
-                {done ? (
-                  <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M5 13l4 4L19 7" />
-                  </svg>
-                ) : (
-                  <StepIcon id={item.id} />
-                )}
-              </div>
-              <span
-                className={`mt-1.5 text-center font-mono text-[10px] transition-colors ${
-                  done || active ? 'text-white/90' : 'text-white/35'
-                }`}
-              >
-                {item.label}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-      {finished && (
-        <button
-          type="button"
-          onClick={onToggle}
-          className="mt-2.5 block w-full text-center font-mono text-[10px] text-white/45 hover:text-white/75"
-        >
-          收起策展步骤 ▴
-        </button>
-      )}
-    </div>
-  );
-}
-
-function StepIcon({ id }: { id: (typeof STEP_META)[number]['id'] }) {
-  if (id === 'intent') {
-    return (
-      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 3l2.2 6.2L20 12l-5.8 2.8L12 21l-2.2-6.2L4 12l5.8-2.8L12 3z" />
-      </svg>
-    );
-  }
-  if (id === 'mood') {
-    return (
-      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="2.5" />
-        <path d="M8.5 8.5a5 5 0 0 1 7 0M15.5 15.5a5 5 0 0 1-7 0" />
-        <path d="M5.5 5.5a9 9 0 0 1 13 0M18.5 18.5a9 9 0 0 1-13 0" />
-      </svg>
-    );
-  }
-  if (id === 'match') {
-    return (
-      <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="4" width="18" height="16" rx="2" />
-        <path d="M7 4v16M17 4v16M3 8h4M3 16h4M17 8h4M17 16h4" />
-      </svg>
-    );
-  }
-  return (
-    <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M2 12h4l2.5-6 4 12 3-7 2 1h4.5" />
-    </svg>
-  );
-}
 
 function DockButton({ label, active, onClick, icon }: { label: string; active: boolean; onClick: () => void; icon: 'spark' | 'grid' | 'live' | 'gear' }) {
   return (
@@ -1667,7 +1596,10 @@ async function runCurate(
   hooks: {
     isStale: () => boolean;
     onStep: (n: number) => void;
-    onIntro: (text: string) => void;
+    onMeta: (meta: Partial<CurateMeta>) => void;
+    onNotes: (notes: CuratorNotes) => void;
+    onPickedCount: (count: number) => void;
+    onMovieStatus: (title: string, status: 'pending' | 'ready' | 'withdrawn') => void;
     onUpsertResult: (item: HitItem) => void;
     onDone: (missing: string[]) => void;
   }
@@ -1677,41 +1609,30 @@ async function runCurate(
     window.dispatchEvent(new CustomEvent('libretv:unauthorized'));
     return;
   }
-  if (!res.ok || !res.body) return;
+  if (!res.ok || !res.body) {
+    if (!hooks.isStale()) hooks.onDone([]);
+    return;
+  }
+
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
-  let movies: Pick[] = [];
-  const consume = (block: string) => {
-    const event = /event: (\w+)/.exec(block)?.[1];
-    const dataLine = block.split('\n').find((line) => line.startsWith('data: '));
-    if (!event || !dataLine) return;
-    const data = JSON.parse(dataLine.slice(6)) as { index?: number; text?: string; movies?: Pick[] };
-    if (hooks.isStale()) return;
-    if (event === 'step' && typeof data.index === 'number') hooks.onStep(data.index);
-    if (event === 'intro' && data.text) hooks.onIntro(data.text);
-    if (event === 'movies' && data.movies) movies = data.movies;
-  };
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const parts = buffer.split('\n\n');
-    buffer = parts.pop() || '';
-    parts.forEach(consume);
-  }
-  if (buffer.trim()) consume(buffer);
-  if (hooks.isStale()) return;
-
-  hooks.onStep(3);
   const missing: string[] = [];
+  const startedTitles = new Set<string>();
+  const verifyPromises: Promise<void>[] = [];
 
-  await Promise.all(
-    movies.map(async (movie, index) => {
-      const match = Math.max(80, 97 - index * 3);
+  const enqueueVerify = (movie: CuratePick, index: number) => {
+    if (!movie?.t || startedTitles.has(movie.t) || hooks.isStale()) return;
+    startedTitles.add(movie.t);
+    hooks.onPickedCount(startedTitles.size);
+    hooks.onMovieStatus(movie.t, 'pending');
+
+    const match = Math.max(82, 97 - index * 3);
+    const task = (async () => {
       const pushHit = (found: SearchResultItem[]) => {
         if (!found.length || hooks.isStale()) return;
         const media = resolveSafeMedia(movie.t, found.find((h) => h.pic)?.pic);
+        hooks.onMovieStatus(movie.t, 'ready');
         hooks.onUpsertResult({
           ...movie,
           s: found.length,
@@ -1731,10 +1652,61 @@ async function runCurate(
       if (finalHits.length > 0) {
         pushHit(finalHits);
       } else {
+        hooks.onMovieStatus(movie.t, 'withdrawn');
         missing.push(movie.t);
       }
-    })
-  );
+    })();
+
+    verifyPromises.push(task);
+  };
+
+  const consume = (block: string) => {
+    const event = /event: (\w+)/.exec(block)?.[1];
+    const dataLine = block.split('\n').find((line) => line.startsWith('data: '));
+    if (!event || !dataLine) return;
+    let data: Record<string, unknown>;
+    try {
+      data = JSON.parse(dataLine.slice(6)) as Record<string, unknown>;
+    } catch {
+      return;
+    }
+    if (hooks.isStale()) return;
+
+    if (event === 'step' && typeof data.index === 'number') {
+      hooks.onStep(data.index);
+      if (typeof data.totalCatalog === 'number') {
+        hooks.onMeta({ totalCatalog: data.totalCatalog });
+      }
+    } else if (event === 'meta') {
+      hooks.onMeta(data as Partial<CurateMeta>);
+    } else if (event === 'movie' && data.movie && typeof data.movie === 'object') {
+      const idx = typeof data.index === 'number' ? data.index : startedTitles.size;
+      enqueueVerify(data.movie as CuratePick, idx);
+    } else if (event === 'movies' && Array.isArray(data.movies)) {
+      (data.movies as CuratePick[]).forEach((m, idx) => enqueueVerify(m, idx));
+    } else if (event === 'notes') {
+      const preface = typeof data.preface === 'string' ? data.preface : '';
+      const advice = typeof data.advice === 'string' ? data.advice : '';
+      const lineup = typeof data.lineup === 'string' ? data.lineup : '';
+      if (preface || advice || lineup) {
+        hooks.onNotes({ preface, advice, lineup });
+      }
+    }
+  };
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split('\n\n');
+    buffer = parts.pop() || '';
+    parts.forEach(consume);
+  }
+  if (buffer.trim()) consume(buffer);
+  if (hooks.isStale()) return;
+
+  hooks.onStep(3);
+  await Promise.all(verifyPromises);
 
   if (!hooks.isStale()) {
     hooks.onDone(missing);
