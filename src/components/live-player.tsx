@@ -12,6 +12,7 @@ import {
   preloadGoogleCastSdk,
   triggerSystemCast,
 } from '@/lib/cast';
+import { PlayerPoster } from './player-poster';
 
 /**
  * 直播播放器：与点播 player-shell 完全独立。
@@ -473,17 +474,7 @@ export function LivePlayer({ url, title, onPrevChannel, onNextChannel, volumeBoo
     <div className="relative w-full h-full">
       <div ref={containerRef} className="w-full h-full" />
       {/* 起播前的品牌占位图 */}
-      {showPoster && !error && (
-        <div
-          className="absolute inset-0 bg-black pointer-events-none"
-          style={{
-            backgroundImage: 'url(/player-poster.png)',
-            backgroundSize: 'contain',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-          }}
-        />
-      )}
+      {showPoster && !error && <PlayerPoster />}
       {/* LIVE 呼吸标识 */}
       {!error && (
         <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-black/60 px-2 py-1 rounded-full pointer-events-none">

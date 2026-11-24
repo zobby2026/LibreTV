@@ -150,7 +150,6 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
   const boards = catalog.boards || [];
   const [tab, setTab] = useState<'home' | 'library' | 'live'>(initialTab);
   const [heroIdx, setHeroIdx] = useState(0);
-  const [openBoard, setOpenBoard] = useState<string | null>(null);
   const [fullBoard, setFullBoard] = useState<(typeof boards)[number] | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sourceOpen, setSourceOpen] = useState(false);
@@ -709,54 +708,69 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
             <section className="mt-7 px-4 lg:mt-10 lg:px-0">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="font-serif text-lg font-semibold lg:text-xl">影展榜单</h2>
-                <span className="font-mono text-[11px] text-white/40">点击展开 TOP 5</span>
+                <span className="font-mono text-[11px] text-white/40">点击查看 TOP 10</span>
               </div>
               <div className="no-scrollbar flex items-start gap-3 overflow-x-auto pb-2 lg:grid lg:grid-cols-3 lg:gap-4">
                 {boards.map((board) => {
-                  const open = openBoard === board.id;
                   const top = board.items[0];
                   return (
-                    <div
+                    <button
                       key={board.id}
-                      className="glass flex-shrink-0 overflow-hidden rounded-2xl transition-[width] duration-300 lg:!w-auto"
-                      style={{ width: open ? 272 : 148 }}
+                      type="button"
+                      onClick={() => setFullBoard(board)}
+                      className="group relative flex aspect-[4/5] w-[156px] flex-shrink-0 flex-col justify-between overflow-hidden rounded-2xl border border-white/10 p-3.5 text-left transition-all duration-300 hover:-translate-y-1 hover:border-white/20 active:scale-95 lg:aspect-[16/10] lg:w-auto lg:p-4.5"
+                      style={{ background: top ? `linear-gradient(145deg, ${top.a}33, ${top.b} 70%)` : '#0d0e12' }}
                     >
-                      <button type="button" className="flex w-full items-center justify-between p-3 text-left lg:p-4" onClick={() => setOpenBoard(open ? null : board.id)}>
-                        <span>
-                          <span className="block text-sm font-semibold leading-tight lg:text-base">{board.name}</span>
-                          <span className="mt-0.5 block text-[10px] text-white/50 lg:text-xs">{board.sub}</span>
-                        </span>
-                        <span className="text-xs text-white/40">{open ? '−' : '+'}</span>
-                      </button>
-                      {!open && (
-                        <button
-                          type="button"
-                          className="w-full p-3 pt-6 text-left lg:p-4 lg:pt-8"
-                          style={{ background: top ? `linear-gradient(135deg, ${top.a}55, ${top.b})` : 'rgba(255,255,255,0.03)' }}
-                          onClick={() => setOpenBoard(board.id)}
-                        >
-                          <div className="font-mono text-[10px] tracking-widest opacity-70">NO.1</div>
-                          <div className="mt-0.5 truncate text-xs font-medium lg:text-sm">{top?.t || '每日凌晨更新'}</div>
-                        </button>
-                      )}
-                      {open && (
-                        <div className="space-y-2 border-t border-white/10 px-3 pb-3 pt-2.5 lg:px-4">
-                          {board.items.slice(0, 5).map((item, i) => (
-                            <button key={`${item.id}-${i}`} type="button" className="flex w-full items-center gap-2.5 py-1 text-left hover:text-white" onClick={() => void openDetail(item)}>
-                              <span className="w-4 text-center font-mono text-xs font-bold" style={{ color: i < 3 ? 'var(--a)' : 'rgba(255,255,255,.4)' }}>{i + 1}</span>
-                              <span className="min-w-0 flex-1">
-                                <span className="block truncate text-xs font-medium">{item.t}</span>
-                                <span className="font-mono text-[10px] text-white/45">{item.d} · {item.ty}</span>
-                              </span>
-                              <span className="font-mono text-[11px] text-[#ffd27a]">{item.r}</span>
-                            </button>
-                          ))}
-                          <button type="button" className="mt-1 w-full border-t border-white/10 pt-2 text-center font-mono text-[11px] text-white/60 hover:text-white" onClick={() => setFullBoard(board)}>
-                            查看完整榜单 ›
-                          </button>
+                      {/* 背景海报层 */}
+                      {top?.poster && (
+                        <div className="absolute inset-0 z-0 overflow-hidden">
+                          <CinemaImg
+                            src={toListPoster(top.poster)}
+                            loading="lazy"
+                            decoding="async"
+                            draggable={false}
+                            className="h-full w-full object-cover opacity-55 transition-transform duration-500 group-hover:scale-105"
+                          />
+                          {/* 多层渐变暗黑遮罩 */}
+                          <div
+                            className="absolute inset-0 bg-gradient-to-b from-[#08090b]/40 via-[#08090b]/70 to-[#08090b] transition-opacity duration-300 group-hover:opacity-90"
+                          />
+                          {/* 微妙主题色顶角光 */}
+                          <div
+                            className="pointer-events-none absolute -right-12 -top-12 h-28 w-28 rounded-full opacity-40 blur-2xl"
+                            style={{ background: top.a }}
+                          />
                         </div>
                       )}
-                    </div>
+
+                      {/* 顶部：榜单名称与 TOP 10 胶囊 */}
+                      <div className="relative z-10 flex w-full items-start justify-between gap-1">
+                        <div>
+                          <span className="block font-serif text-sm font-bold leading-tight text-[#f3efe6] lg:text-base">
+                            {board.name}
+                          </span>
+                          <span className="mt-0.5 block text-[10px] text-white/60 lg:text-xs">
+                            {board.sub}
+                          </span>
+                        </div>
+                        <span className="flex items-center gap-0.5 rounded-full border border-white/15 bg-black/45 px-2 py-0.5 font-mono text-[9px] text-[#ffd27a] backdrop-blur-md">
+                          TOP 10 ›
+                        </span>
+                      </div>
+
+                      {/* 底部：NO.1 金色标签与第一名片名 */}
+                      <div className="relative z-10 w-full pt-4">
+                        <div className="flex items-center gap-1.5 font-mono text-[10px] tracking-wider text-[#ffd27a]">
+                          <span className="rounded bg-[#ffd27a]/20 px-1 py-0.5 text-[9px] font-bold text-[#ffd27a]">
+                            NO.1
+                          </span>
+                          {top?.r ? <span>★ {top.r}</span> : null}
+                        </div>
+                        <div className="mt-1 truncate text-xs font-semibold text-[#f3efe6] drop-shadow-sm lg:text-sm">
+                          {top?.t || '每日凌晨更新'}
+                        </div>
+                      </div>
+                    </button>
                   );
                 })}
               </div>

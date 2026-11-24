@@ -34,6 +34,7 @@ import {
   preloadGoogleCastSdk,
   triggerSystemCast,
 } from '@/lib/cast';
+import { PlayerPoster } from './player-poster';
 
 /** 自定义播放倍速选项 */
 const PLAYBACK_RATES = [0.75, 1.0, 1.5, 1.75, 2.0, 2.5, 3.0];
@@ -1172,17 +1173,7 @@ export function PlayerShell({
   return (
     <div className="relative w-full h-full">
       <div ref={containerRef} className="w-full h-full" style={{ WebkitTouchCallout: 'none' }} />
-      {showPoster && !error && (
-        <div
-          className="absolute inset-0 bg-black pointer-events-none"
-          style={{
-            backgroundImage: 'url(/player-poster.png)',
-            backgroundSize: 'contain',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
-          }}
-        />
-      )}
+      {showPoster && !error && <PlayerPoster />}
       {!error && skipPrompt && (
         <button
           type="button"
