@@ -7,7 +7,6 @@ import { catalog, flattenCatalog, type CatalogEditorial, type CatalogItem, type 
 import { clearAllHistory } from '@/lib/db';
 import { isInDisabledSubscription, isSourceDisabled, resolveSource, useAppStore } from '@/lib/store';
 import { buildWatchUrl, validateSourceUrl } from '@/lib/utils';
-import { SITE_NAME } from '@/lib/brand';
 import { fetchDecisionCardCached, getCachedDecisionCard, type DecisionCardData } from '@/lib/decision-card-cache';
 import {
   getNextEditionNumber,
@@ -17,6 +16,7 @@ import {
   type CuratorNotes,
 } from '@/lib/curate-presets';
 import { useAuth } from './auth';
+import { BrandMark, BrandWordmark } from './brand-mark';
 import { CinemaImg } from './cinema-img';
 import { ContinueWatching } from './continue-watching';
 import { CurateStage, type StageMovieStatus } from './curate-stage';
@@ -478,10 +478,10 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
           <button
             type="button"
             onClick={() => { setSearchOpen(false); setTab('home'); }}
-            className="flex shrink-0 items-center gap-2 text-left"
+            className="flex shrink-0 items-center gap-2.5 text-left transition-opacity hover:opacity-90"
           >
-            <span className="text-lg" style={{ color: 'var(--a)' }}>✦</span>
-            <span className="font-serif text-lg font-bold tracking-tight">{SITE_NAME}</span>
+            <BrandMark className="h-8 w-8 shrink-0" />
+            <BrandWordmark className="text-[17px]" />
           </button>
 
           <nav className="flex items-center gap-1 text-sm">

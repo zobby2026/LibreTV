@@ -343,6 +343,9 @@ body {
 .cinema-app { background: #08090b; color: #f3efe6; }
 .cinema-app .font-serif { font-family: "Songti SC", "Noto Serif SC", Georgia, serif; }
 .cinema-app .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+.brand-wordmark {
+  font-family: "PingFang SC", "Hiragino Sans GB", "Noto Sans SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
 .no-callout {
   -webkit-touch-callout: none;
   -webkit-user-select: none;

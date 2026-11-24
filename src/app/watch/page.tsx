@@ -307,8 +307,8 @@ function WatchContent() {
       </header>
 
       <main className="relative z-10 mx-auto w-full max-w-7xl flex-1 px-0 pb-10 pt-0 sm:px-4 sm:pt-4 lg:px-6 lg:pt-6">
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_320px]">
-          <div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_300px] md:items-start lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-5">
+          <div className="min-w-0">
             {/* 播放器主框 */}
             <div
               ref={playerFrameRef}
@@ -359,11 +359,11 @@ function WatchContent() {
             </div>
 
             <div className="px-4 sm:px-0">
-              {/* 胶囊操作栏 */}
-              <div className="mt-3.5 flex flex-wrap items-center gap-2">
+              {/* 横排单行胶囊操作栏 */}
+              <div className="no-scrollbar mt-3.5 flex items-center gap-2 overflow-x-auto">
                 <button
                   type="button"
-                  className="glass rounded-full px-3.5 py-1.5 text-xs text-white/85 transition hover:bg-white/15 disabled:opacity-35"
+                  className="glass shrink-0 rounded-full px-3.5 py-1.5 text-xs text-white/85 transition hover:bg-white/15 disabled:opacity-35"
                   disabled={currentIndex <= 0}
                   onClick={() => goEpisode(currentIndex - 1)}
                 >
@@ -371,7 +371,7 @@ function WatchContent() {
                 </button>
                 <button
                   type="button"
-                  className="glass rounded-full px-3.5 py-1.5 text-xs text-white/85 transition hover:bg-white/15 disabled:opacity-35"
+                  className="glass shrink-0 rounded-full px-3.5 py-1.5 text-xs text-white/85 transition hover:bg-white/15 disabled:opacity-35"
                   disabled={episodes.length === 0 || currentIndex >= episodes.length - 1}
                   onClick={() => goEpisode(currentIndex + 1)}
                 >
@@ -380,7 +380,7 @@ function WatchContent() {
                 <button
                   type="button"
                   className={cn(
-                    'glass rounded-full px-3.5 py-1.5 text-xs transition hover:bg-white/15',
+                    'glass shrink-0 rounded-full px-3.5 py-1.5 text-xs transition hover:bg-white/15',
                     skipPanelOpen ? 'border-white/30 bg-white/15 text-white' : 'text-white/80'
                   )}
                   aria-expanded={skipPanelOpen}
@@ -395,7 +395,7 @@ function WatchContent() {
                   role="switch"
                   aria-checked={store.autoplayNext}
                   onClick={() => store.updateSettings({ autoplayNext: !store.autoplayNext })}
-                  className="glass ml-auto inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs text-white/80"
+                  className="glass ml-auto inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-xs text-white/80"
                 >
                   <span>自动连播</span>
                   <span
@@ -437,8 +437,8 @@ function WatchContent() {
             </div>
           </div>
 
-          {/* 暗黑玻璃剧集侧栏 */}
-          <aside className="mx-4 h-fit rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-md sm:mx-0">
+          {/* 暗黑玻璃剧集侧栏（横排时居右吸顶） */}
+          <aside className="mx-4 h-fit rounded-2xl border border-white/10 bg-white/[0.04] p-4 backdrop-blur-md sm:mx-0 md:sticky md:top-20">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h2 className="font-serif text-sm font-bold text-[#f3efe6]">
                 选集{episodes.length > 0 && <span className="ml-1.5 font-mono text-xs font-normal text-white/45">({episodes.length})</span>}

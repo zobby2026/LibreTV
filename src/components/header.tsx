@@ -9,10 +9,10 @@ import { HistoryPanel } from './history-panel';
 import { requestShowDownloadManager } from './download-manager';
 import { Icon } from './icon';
 import { SearchHistoryDropdown, useSearchHistory } from './search-history';
-import { BrandMark } from './brand-mark';
+import { BrandMark, BrandWordmark } from './brand-mark';
 import { AccountPanel } from './account-panel';
 import { useAuth } from './auth';
-import { SITE_NAME, SITE_NAME_PREFIX, SITE_NAME_SUFFIX } from '@/lib/brand';
+import { SITE_NAME } from '@/lib/brand';
 import { cn } from '@/lib/utils';
 
 /** 顶部导航：Logo、搜索框（首页外）、历史、设置 */
@@ -50,12 +50,8 @@ export function Header({ showSearch = false }: { showSearch?: boolean }) {
             aria-label={`${SITE_NAME} 首页`}
             className="flex items-center gap-2 shrink-0 transition-opacity hover:opacity-90"
           >
-            <BrandMark className="w-7 h-7 shrink-0" />
-            {/* 双色字标：前缀用主色金，后缀用正文色，比整串单色更有品牌感 */}
-            <span className="hidden text-[15px] font-semibold tracking-tight min-[340px]:inline">
-              <span className="text-accent">{SITE_NAME_PREFIX}</span>
-              <span className="text-content/90">{SITE_NAME_SUFFIX}</span>
-            </span>
+            <BrandMark className="h-7 w-7 shrink-0" />
+            <BrandWordmark className="hidden text-[15px] min-[340px]:inline-flex" />
           </Link>
 
           {showSearch && (

@@ -16,6 +16,7 @@ export const metadata: Metadata = {
   // 只声明单张 512 时，抓取端只能拿大图缩放，小尺寸下易糊、看起来「没填满」。
   icons: {
     icon: [
+      { url: '/brand/mark.svg', type: 'image/svg+xml' },
       { url: '/favicon.ico', sizes: '48x48' },
       { url: '/icons/icon-96.png', sizes: '96x96', type: 'image/png' },
       { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },

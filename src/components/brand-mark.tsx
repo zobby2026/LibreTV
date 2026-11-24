@@ -1,40 +1,166 @@
+import { SITE_NAME, SITE_NAME_PREFIX, SITE_NAME_SUFFIX } from '@/lib/brand';
+import { cn } from '@/lib/utils';
+
 /**
- * 品牌字标：金色渐变圆角方块 + 深色 Z。
- *
- * 为什么是「金底深 Z」而不是「深底金 Z」：页头背景在暗色下接近黑、在浅色下是米白，
- * 只有实心金块能在两种主题里都保持同样的辨识度；Z 用深色也顺带满足金底对比度
- * （白字放在 #dba64a 上只有 1.9:1，读不清）。
- *
- * 渐变 id 固定而不用 useId —— 这个组件会被 Server Component（页脚）和
- * Client Component（页头）同时渲染，useId 在 RSC 里不可用；同 id 的渐变定义
- * 重复出现不会出错，浏览器取第一份，且两份内容完全一致。
+ * 站点 Logo：Z 字母电影胶片 + 琥珀色胶片播放三角（无外框，透明底）。
+ * 渐变 id 固定而不用 useId —— 同时用于 Server/Client 组件。
  */
 export function BrandMark({ className }: { className?: string }) {
   return (
     <svg
-      viewBox="0 0 32 32"
+      viewBox="0 0 64 64"
       className={className}
       role="img"
-      aria-label="zobby的影视库"
+      aria-label={SITE_NAME}
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
       <defs>
-        <linearGradient id="zm-gold-gradient" x1="4" y1="2" x2="28" y2="30" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#f8e7bf" />
-          <stop offset="0.42" stopColor="#dba64a" />
-          <stop offset="1" stopColor="#b07d26" />
+        <linearGradient id="zf-film-top" x1="8" y1="8" x2="56" y2="22" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#3c4f69" />
+          <stop offset="48%" stopColor="#1c2738" />
+          <stop offset="100%" stopColor="#0f1724" />
+        </linearGradient>
+        <linearGradient id="zf-film-diag" x1="54" y1="16" x2="10" y2="48" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#4e392d" />
+          <stop offset="28%" stopColor="#1e2b3e" />
+          <stop offset="72%" stopColor="#2c3e57" />
+          <stop offset="100%" stopColor="#111927" />
+        </linearGradient>
+        <linearGradient id="zf-film-bot" x1="10" y1="44" x2="56" y2="56" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#131c2b" />
+          <stop offset="55%" stopColor="#26354c" />
+          <stop offset="100%" stopColor="#4a372c" />
+        </linearGradient>
+        <linearGradient id="zf-play-fill" x1="22" y1="18" x2="46" y2="44" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#ffd0a6" stopOpacity="0.96" />
+          <stop offset="52%" stopColor="#e98448" stopOpacity="0.92" />
+          <stop offset="100%" stopColor="#b84b20" stopOpacity="0.94" />
+        </linearGradient>
+        <linearGradient id="zf-play-stroke" x1="22" y1="18" x2="46" y2="44" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#ffe5cc" />
+          <stop offset="100%" stopColor="#d46830" />
         </linearGradient>
       </defs>
-      <rect x="0" y="0" width="32" height="32" rx="9" fill="url(#zm-gold-gradient)" />
-      <rect x="0.6" y="0.6" width="30.8" height="30.8" rx="8.5" stroke="#000" strokeOpacity="0.18" strokeWidth="1.2" />
+
       <path
-        d="M10 10.9h12L10 21.1h12"
-        stroke="#15100a"
-        strokeWidth="3.1"
-        strokeLinecap="round"
+        d="M10 10.5 C10 8.5 12 7.5 15 7.5 H49 C53.5 7.5 56 10 56 13.5 C56 16.5 54 18.5 51 19.5 H14 C11 19.5 10 18 10 16 Z"
+        fill="url(#zf-film-top)"
+        stroke="#6c829e"
+        strokeOpacity="0.35"
+        strokeWidth="0.9"
+      />
+      <rect x="16" y="10.2" width="9" height="6.6" rx="1" fill="#7da0c4" fillOpacity="0.16" />
+      <rect x="27.5" y="10.2" width="9" height="6.6" rx="1" fill="#7da0c4" fillOpacity="0.14" />
+      <rect x="39" y="10.2" width="9" height="6.6" rx="1" fill="#7da0c4" fillOpacity="0.16" />
+      <g fill="#f3efe6" fillOpacity="0.88">
+        <rect x="12.5" y="8.6" width="2" height="1.3" rx="0.4" />
+        <rect x="17.5" y="8.6" width="2" height="1.3" rx="0.4" />
+        <rect x="22.5" y="8.6" width="2" height="1.3" rx="0.4" />
+        <rect x="27.5" y="8.6" width="2" height="1.3" rx="0.4" />
+        <rect x="32.5" y="8.6" width="2" height="1.3" rx="0.4" />
+        <rect x="37.5" y="8.6" width="2" height="1.3" rx="0.4" />
+        <rect x="42.5" y="8.6" width="2" height="1.3" rx="0.4" />
+        <rect x="47.5" y="8.6" width="2" height="1.3" rx="0.4" />
+        <rect x="12.5" y="17.2" width="2" height="1.3" rx="0.4" />
+        <rect x="17.5" y="17.2" width="2" height="1.3" rx="0.4" />
+        <rect x="22.5" y="17.2" width="2" height="1.3" rx="0.4" />
+        <rect x="27.5" y="17.2" width="2" height="1.3" rx="0.4" />
+        <rect x="32.5" y="17.2" width="2" height="1.3" rx="0.4" />
+        <rect x="37.5" y="17.2" width="2" height="1.3" rx="0.4" />
+        <rect x="42.5" y="17.2" width="2" height="1.3" rx="0.4" />
+        <rect x="47.5" y="17.2" width="2" height="1.3" rx="0.4" />
+      </g>
+
+      <path
+        d="M51.5 11.5 C55.5 14 55.8 18.2 52.2 21.5 L19.8 50.8 C16.5 53.8 11.8 53.2 9.5 49.5 C7.5 46.2 8.8 42.2 12.2 39.5 L44.5 10.8 C46.8 9 49.2 10 51.5 11.5 Z"
+        fill="url(#zf-film-diag)"
+        stroke="#89a0bc"
+        strokeOpacity="0.3"
+        strokeWidth="0.9"
+      />
+      <g fill="#f3efe6" fillOpacity="0.82">
+        <circle cx="46.5" cy="14.5" r="0.95" />
+        <circle cx="42.2" cy="18.3" r="0.95" />
+        <circle cx="21.5" cy="36.8" r="0.95" />
+        <circle cx="17.2" cy="40.6" r="0.95" />
+        <circle cx="13.2" cy="44.2" r="0.95" />
+        <circle cx="50.4" cy="19.6" r="0.95" />
+        <circle cx="46.1" cy="23.4" r="0.95" />
+        <circle cx="25.8" cy="41.6" r="0.95" />
+        <circle cx="21.5" cy="45.4" r="0.95" />
+        <circle cx="17.5" cy="49.0" r="0.95" />
+      </g>
+
+      <path
+        d="M12.5 44.5 H50 C53 44.5 54.5 46 54.5 48.5 V53 C54.5 55.2 52.8 56.5 50 56.5 H14.5 C10.5 56.5 8.5 54 8.5 50.5 C8.5 47 10 44.5 12.5 44.5 Z"
+        fill="url(#zf-film-bot)"
+        stroke="#6c829e"
+        strokeOpacity="0.35"
+        strokeWidth="0.9"
+      />
+      <rect x="16" y="47.2" width="9" height="6.6" rx="1" fill="#7da0c4" fillOpacity="0.16" />
+      <rect x="27.5" y="47.2" width="9" height="6.6" rx="1" fill="#7da0c4" fillOpacity="0.14" />
+      <rect x="39" y="47.2" width="9" height="6.6" rx="1" fill="#e98448" fillOpacity="0.16" />
+      <g fill="#f3efe6" fillOpacity="0.88">
+        <rect x="13" y="45.6" width="2" height="1.3" rx="0.4" />
+        <rect x="18" y="45.6" width="2" height="1.3" rx="0.4" />
+        <rect x="23" y="45.6" width="2" height="1.3" rx="0.4" />
+        <rect x="28" y="45.6" width="2" height="1.3" rx="0.4" />
+        <rect x="33" y="45.6" width="2" height="1.3" rx="0.4" />
+        <rect x="38" y="45.6" width="2" height="1.3" rx="0.4" />
+        <rect x="43" y="45.6" width="2" height="1.3" rx="0.4" />
+        <rect x="48" y="45.6" width="2" height="1.3" rx="0.4" />
+        <rect x="13" y="54.2" width="2" height="1.3" rx="0.4" />
+        <rect x="18" y="54.2" width="2" height="1.3" rx="0.4" />
+        <rect x="23" y="54.2" width="2" height="1.3" rx="0.4" />
+        <rect x="28" y="54.2" width="2" height="1.3" rx="0.4" />
+        <rect x="33" y="54.2" width="2" height="1.3" rx="0.4" />
+        <rect x="38" y="54.2" width="2" height="1.3" rx="0.4" />
+        <rect x="43" y="54.2" width="2" height="1.3" rx="0.4" />
+        <rect x="48" y="54.2" width="2" height="1.3" rx="0.4" />
+      </g>
+
+      <path
+        d="M24.2 21.8 C24.2 19.6 26.6 18.3 28.5 19.4 L43.6 28.7 C45.4 29.8 45.4 32.5 43.6 33.6 L28.5 42.9 C26.6 44 24.2 42.7 24.2 40.5 Z"
+        fill="url(#zf-play-fill)"
+        stroke="url(#zf-play-stroke)"
+        strokeWidth="1.4"
         strokeLinejoin="round"
       />
+      <path d="M27.6 24.6 L39.2 31.15 L27.6 37.7 Z" fill="#fff3e6" fillOpacity="0.22" />
+      <g fill="#fff5eb" fillOpacity="0.88">
+        <rect x="25.5" y="23.2" width="1.1" height="1.7" rx="0.35" />
+        <rect x="25.5" y="27.1" width="1.1" height="1.7" rx="0.35" />
+        <rect x="25.5" y="31.0" width="1.1" height="1.7" rx="0.35" />
+        <rect x="25.5" y="34.9" width="1.1" height="1.7" rx="0.35" />
+        <rect x="25.5" y="38.8" width="1.1" height="1.7" rx="0.35" />
+      </g>
     </svg>
+  );
+}
+
+/**
+ * 全站统一的站点名称字标「zobby的影视库」：
+ * 统一采用无衬线现代中英文字体栈与字重，避免首页、顶栏、播放器封面各自字体割裂。
+ */
+export function BrandWordmark({
+  className,
+  dualTone = true,
+}: {
+  className?: string;
+  dualTone?: boolean;
+}) {
+  return (
+    <span className={cn('brand-wordmark inline-flex items-baseline whitespace-nowrap font-semibold tracking-[0.02em]', className)}>
+      {dualTone ? (
+        <>
+          <span style={{ color: 'var(--a, #e98448)' }}>{SITE_NAME_PREFIX}</span>
+          <span className="text-[#f3efe6]">{SITE_NAME_SUFFIX}</span>
+        </>
+      ) : (
+        <span className="text-[#f3efe6]">{SITE_NAME}</span>
+      )}
+    </span>
   );
 }
