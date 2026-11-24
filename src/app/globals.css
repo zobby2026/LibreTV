@@ -342,6 +342,19 @@ body {
 :root { --a: #e86f51; }
 .cinema-app { background: #08090b; color: #f3efe6; }
 .cinema-app .font-serif { font-family: "Songti SC", "Noto Serif SC", Georgia, serif; }
+.cinema-app .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+.no-callout {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+@keyframes step-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--a) 55%, transparent); }
+  50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--a) 0%, transparent); }
+}
+.step-ring-active {
+  animation: step-pulse 1.5s ease-in-out infinite;
+}
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { scrollbar-width: none; }
 .glass { background: rgba(255, 255, 255, .07); border: 1px solid rgba(255, 255, 255, .12); }
@@ -362,29 +375,6 @@ body {
   animation: aur-spin 6s linear infinite;
 }
 @keyframes aur-spin { to { --ang: 360deg; } }
-.film-fx { position: fixed; inset: 0; z-index: 70; pointer-events: none; }
-.film-grain {
-  position: absolute; inset: -20%; opacity: .05;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  animation: grain-shift .5s steps(1) infinite;
-}
-.film-dust {
-  position: absolute; inset: 0;
-  background-image:
-    radial-gradient(1px 1px at 20% 30%, rgba(255,240,210,.6), transparent),
-    radial-gradient(1.5px 1.5px at 75% 60%, rgba(255,240,210,.5), transparent),
-    radial-gradient(1px 1px at 45% 85%, rgba(255,240,210,.7), transparent);
-  background-size: 240px 240px, 330px 330px, 410px 410px;
-  animation: dust-drift 45s linear infinite;
-}
-@keyframes grain-shift {
-  0% { transform: translate(0, 0); }
-  25% { transform: translate(-15px, 10px); }
-  50% { transform: translate(12px, -18px); }
-  75% { transform: translate(-8px, -12px); }
-}
-@keyframes dust-drift { to { background-position: 0 -240px, 0 -330px, 0 -410px; } }
-body.no-fx .film-fx { display: none; }
 @media (hover: hover) {
   .spot-card { position: relative; }
   .spot-card:hover::after {
@@ -394,5 +384,5 @@ body.no-fx .film-fx { display: none; }
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .film-grain, .film-dust, .aur { animation: none; }
+  .aur, .step-ring-active { animation: none; }
 }

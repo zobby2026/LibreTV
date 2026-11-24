@@ -3,7 +3,6 @@ import { Suspense } from 'react';
 import './globals.css';
 import { Providers } from '@/components/providers';
 import { MobileDock } from '@/components/mobile-dock';
-import { FilmFx } from '@/components/film-fx';
 import { SITE_NAME, SITE_DESCRIPTION } from '@/lib/brand';
 
 export const metadata: Metadata = {
@@ -45,7 +44,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
-        <FilmFx />
         <Providers>
           {children}
           <Suspense fallback={null}>
