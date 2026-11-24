@@ -1,10 +1,11 @@
 import { guardRequest } from '@/lib/api-guard';
-import { aiConfig, chatStreamLines } from '@/lib/ai-openai';
+import { chatStreamLines, getEffectiveAiConfig } from '@/lib/ai-openai';
 import { catalog, flattenCatalog } from '@/lib/catalog';
 import {
   isValidHexColor,
   matchCuratePreset,
   type CuratePick,
+  type CuratePreset,
   type CuratorNotes,
 } from '@/lib/curate-presets';
 
@@ -142,8 +143,9 @@ export async function GET(req: Request) {
           send('movie', { movie: pick, index: movies.length - 1 });
         };
 
-        const { enabled } = aiConfig();
-        if (enabled) {
+        let isAiGenerated = false;
+        const ai = await getEffectiveAiConfig();
+        if (ai.enabled) {
           const pool = allCatalog
             .slice(0, 24)
             .map((m) => `${m.t}(${m.y})`)
@@ -185,6 +187,7 @@ export async function GET(req: Request) {
                 }
 
                 if (kind === 'movie' || (!kind && typeof obj.t === 'string')) {
+                  isAiGenerated = true;
                   emitMovie({
                     t: String(obj.t || ''),
                     y: Number(obj.y) || 0,
@@ -210,6 +213,7 @@ export async function GET(req: Request) {
                   }
                   for (const item of obj.movies) {
                     if (item && typeof item === 'object') {
+                      isAiGenerated = true;
                       emitMovie(item as Partial<CuratePick>);
                     }
                   }
@@ -222,7 +226,7 @@ export async function GET(req: Request) {
         emitMetaIfNeeded();
 
         if (movies.length < 5) {
-          const fallback = fallbackPicks(q, preset.annotations);
+          const fallback = fallbackPicks(q, preset);
           for (const item of fallback) {
             if (movies.length >= 5) break;
             emitMovie(item);
@@ -233,11 +237,20 @@ export async function GET(req: Request) {
           send('step', { index: 2, label: '匹配片库', totalCatalog, count: movies.length });
         }
 
+        // 若未启用大模型或大模型超时未吐出结果，在导语最后微弱注明策展引擎类型
+        if (!isAiGenerated) {
+          notes = {
+            ...notes,
+            preface: `${notes.preface}（✦ 片库精选策展引擎）`,
+          };
+        }
+
         send('notes', notes);
         send('intro', { text: notes.preface, tags });
         send('movies', { movies });
 
-        if (movies.length > 0) {
+        // 仅大模型真正生成的策展结果写入短期缓存；片库精选降级不写强缓存，方便用户每次点击随机刷新不同片单
+        if (isAiGenerated && movies.length > 0) {
           setCached(cacheKey, {
             festivalTitle,
             subtitle,
@@ -281,31 +294,79 @@ function parseLooseJsonLine(line: string): unknown | null {
   }
 }
 
-function fallbackPicks(q: string, annotations: string[]): CuratePick[] {
+const THEME_TAGS: Record<string, string[]> = {
+  twist: ['悬疑', '反转', '烧脑', '惊悚', '推理', '犯罪', '探案', '黑镜'],
+  comedy: ['喜剧', '搞笑', '幽默', '下饭', '轻松', '解压', '布洛芬', '脱口秀'],
+  warmth: ['治愈', '温情', '温柔', '日常', '慢', '细腻', '感动', '家庭', '成长'],
+  action: ['科幻', '动作', '冒险', '奇观', '大片', '特效', '特工', '战争'],
+  gem: ['冷门', '高分', '私藏', '神作', '口碑', '后劲', '文艺', '经典', '佳片'],
+  anime: ['动画', '动漫', '二次元'],
+};
+
+function fallbackPicks(q: string, preset: CuratePreset): CuratePick[] {
   const all = flattenCatalog(catalog);
-  const terms = q
+  const cleanQ = q.trim();
+  const lowerQ = cleanQ.toLowerCase();
+
+  // 提取用户引用的特定片名《...》
+  const targetQuoteMatch = /《([^》]+)》/.exec(cleanQ);
+  const targetTitle = targetQuoteMatch ? targetQuoteMatch[1].trim() : '';
+
+  // 综合用户输入与预设的主题关键词
+  const queryTerms = cleanQ
     .split(/[\s，。、！？,./]+/)
-    .map((s) => s.trim())
+    .map((s) => s.trim().toLowerCase())
     .filter((s) => s.length >= 2);
 
-  const scored = all
-    .map((m) => {
-      const hay = `${m.t} ${m.w || ''} ${m.ai || ''}`;
-      let score = 0;
-      if (q && hay.includes(q)) score += 5;
-      for (const term of terms) {
-        if (hay.includes(term)) score += 2;
-      }
-      return { m, score };
-    })
-    .sort((a, b) => b.score - a.score);
+  const activeThemeKeywords = new Set<string>();
+  preset.keywords.forEach((k) => activeThemeKeywords.add(k.toLowerCase()));
 
-  const picked = scored.filter((x) => x.score > 0).map((x) => x.m);
-  const list = (picked.length >= 5 ? picked : [...picked, ...all.filter((m) => !picked.includes(m))]).slice(0, 5);
+  for (const [_, tags] of Object.entries(THEME_TAGS)) {
+    if (tags.some((t) => lowerQ.includes(t))) {
+      tags.forEach((t) => activeThemeKeywords.add(t));
+    }
+  }
+
+  // 计算每部影片的匹配度 + 动态微扰随机分
+  const scored = all.map((m) => {
+    // 排除被引用对比的原作本身（如“像《原片》一样”，不重复推荐《原片》）
+    if (targetTitle && m.t === targetTitle) {
+      return { m, score: -999 };
+    }
+
+    const hay = `${m.t} ${m.w || ''} ${m.ai || ''} ${m.ty || ''}`.toLowerCase();
+    let score = 0;
+
+    // 1. 用户显式分词命中
+    for (const term of queryTerms) {
+      if (hay.includes(term)) score += 4;
+    }
+
+    // 2. 预设与题材意图命中
+    for (const kw of activeThemeKeywords) {
+      if (hay.includes(kw)) score += 2.5;
+    }
+
+    // 3. 评分权重（高分片优先推荐）
+    const rating = Number(m.r) || 6.5;
+    score += (rating - 6) * 1.2;
+
+    // 4. 动态微扰分（0 ~ 3.5）：保证即使是相同主题，多次点击也能随机刷新出不同组合
+    score += Math.random() * 3.5;
+
+    return { m, score };
+  });
+
+  scored.sort((a, b) => b.score - a.score);
+
+  // 选取最高分的 5 部影片
+  const list = scored.slice(0, 5).map((x) => x.m);
+  const annotations = preset.annotations || [];
+
   return list.map((m, idx) => ({
     t: m.t,
     y: m.y,
-    w: (m.ai || m.w || '').slice(0, 36),
-    note: annotations[idx % annotations.length],
+    w: (m.ai || m.w || '').slice(0, 36) || `${m.d} · ${m.ty} 评分 ${m.r}`,
+    note: annotations[idx % annotations.length] || '策展人私藏精选。',
   }));
 }

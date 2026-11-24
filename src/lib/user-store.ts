@@ -337,7 +337,7 @@ export async function getSharedConfig(): Promise<SharedConfig> {
 }
 
 export async function saveSharedConfig(
-  patch: Partial<Pick<SharedConfig, 'customAPIs' | 'subscriptions' | 'liveSubscriptions'>>,
+  patch: Partial<Pick<SharedConfig, 'customAPIs' | 'subscriptions' | 'liveSubscriptions' | 'aiConfig'>>,
   updatedBy: string
 ): Promise<SharedConfig> {
   return serialize(async () => {
@@ -351,6 +351,7 @@ export async function saveSharedConfig(
       customAPIs: patch.customAPIs ?? current.customAPIs,
       subscriptions: patch.subscriptions ?? current.subscriptions,
       liveSubscriptions: patch.liveSubscriptions ?? current.liveSubscriptions,
+      aiConfig: patch.aiConfig !== undefined ? patch.aiConfig : current.aiConfig,
       updatedAt: Date.now(),
       updatedBy,
     };

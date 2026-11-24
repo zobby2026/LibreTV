@@ -1,3 +1,13 @@
+import { getSharedConfig } from './user-store';
+
+export interface AiRuntimeConfig {
+  base: string;
+  key: string;
+  model: string;
+  enabled: boolean;
+  source: 'kv' | 'env' | 'none';
+}
+
 /** OpenAI 兼容聊天。默认 DeepSeek；设成 GitHub Models 地址时同样可用。 */
 export function aiConfig() {
   const base = (process.env.AI_BASE_URL || 'https://api.deepseek.com/v1').replace(/\/+$/, '');
@@ -6,17 +16,51 @@ export function aiConfig() {
   return { base, key, model, enabled: Boolean(key) };
 }
 
-export async function chatJson(system: string, user: string): Promise<unknown | null> {
-  const { base, key, model, enabled } = aiConfig();
-  if (!enabled) return null;
-  const res = await fetch(`${base}/chat/completions`, {
+/**
+ * 异步获取当前有效 AI 配置：
+ * 优先读取管理员在 KV 中保存的 aiConfig，兜底读取环境变量。
+ */
+export async function getEffectiveAiConfig(): Promise<AiRuntimeConfig> {
+  try {
+    const shared = await getSharedConfig();
+    const custom = shared?.aiConfig;
+    if (custom?.apiKey && custom.apiKey.trim()) {
+      const base = (custom.baseUrl || 'https://api.deepseek.com/v1').replace(/\/+$/, '');
+      const key = custom.apiKey.trim();
+      const model = custom.model?.trim() || (base.includes('models.github.ai') ? 'openai/gpt-4o-mini' : 'deepseek-chat');
+      return { base, key, model, enabled: true, source: 'kv' };
+    }
+  } catch {
+    /* 存储异常不影响环境变量兜底 */
+  }
+
+  const env = aiConfig();
+  return { ...env, source: env.enabled ? 'env' : 'none' };
+}
+
+export async function chatJson(
+  system: string,
+  user: string,
+  overrideConfig?: Partial<AiRuntimeConfig>
+): Promise<unknown | null> {
+  const cfg = overrideConfig?.key
+    ? {
+        base: (overrideConfig.base || 'https://api.deepseek.com/v1').replace(/\/+$/, ''),
+        key: overrideConfig.key,
+        model: overrideConfig.model || 'deepseek-chat',
+        enabled: true,
+      }
+    : await getEffectiveAiConfig();
+
+  if (!cfg.enabled) return null;
+  const res = await fetch(`${cfg.base}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${key}`,
+      Authorization: `Bearer ${cfg.key}`,
     },
     body: JSON.stringify({
-      model,
+      model: cfg.model,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: system },
@@ -49,10 +93,19 @@ export interface ChatStreamOptions {
 export async function chatStreamLines(
   system: string,
   user: string,
-  options: ChatStreamOptions
+  options: ChatStreamOptions,
+  overrideConfig?: Partial<AiRuntimeConfig>
 ): Promise<boolean> {
-  const { base, key, model, enabled } = aiConfig();
-  if (!enabled) return false;
+  const cfg = overrideConfig?.key
+    ? {
+        base: (overrideConfig.base || 'https://api.deepseek.com/v1').replace(/\/+$/, ''),
+        key: overrideConfig.key,
+        model: overrideConfig.model || 'deepseek-chat',
+        enabled: true,
+      }
+    : await getEffectiveAiConfig();
+
+  if (!cfg.enabled) return false;
 
   const controller = new AbortController();
   const timeoutMs = options.timeoutMs ?? 12000;
@@ -61,15 +114,15 @@ export async function chatStreamLines(
   options.signal?.addEventListener('abort', onParentAbort, { once: true });
 
   try {
-    const res = await fetch(`${base}/chat/completions`, {
+    const res = await fetch(`${cfg.base}/chat/completions`, {
       method: 'POST',
       signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${key}`,
+        Authorization: `Bearer ${cfg.key}`,
       },
       body: JSON.stringify({
-        model,
+        model: cfg.model,
         stream: true,
         max_tokens: options.maxTokens ?? 480,
         temperature: options.temperature ?? 0.65,

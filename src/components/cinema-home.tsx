@@ -23,6 +23,7 @@ import { CurateStage, type StageMovieStatus } from './curate-stage';
 import { DecisionCard } from './decision-card';
 import { FestivalResult, type FestivalMovieItem } from './festival-result';
 import { AccountPanel } from './account-panel';
+import { AiConfigDialog } from './ai-config-dialog';
 import { SourceManagerDrawer } from './source-manager';
 import { useToast } from './toast';
 import type { SearchResultItem, SourceConfig } from '@/lib/types';
@@ -156,6 +157,7 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sourceOpen, setSourceOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [aiConfigOpen, setAiConfigOpen] = useState(false);
   const [query, setQuery] = useState('');
   const activePlaceholders = useMemo(() => {
     const list = catalog.placeholders;
@@ -1304,6 +1306,20 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
                   className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-left text-xs font-medium text-[#f3efe6] transition hover:bg-white/10 active:scale-[0.99]"
                   onClick={() => {
                     setSettingsOpen(false);
+                    setAiConfigOpen(true);
+                  }}
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="text-sm">🤖</span>
+                    <span>配置 AI 策展大模型 (DeepSeek / GitHub)</span>
+                  </span>
+                  <span className="font-mono text-white/40">›</span>
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/[0.06] px-4 py-2.5 text-left text-xs font-medium text-[#f3efe6] transition hover:bg-white/10 active:scale-[0.99]"
+                  onClick={() => {
+                    setSettingsOpen(false);
                     setSourceOpen(true);
                   }}
                 >
@@ -1321,6 +1337,7 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
 
       <SourceManagerDrawer open={sourceOpen} onClose={() => setSourceOpen(false)} />
       <AccountPanel open={accountOpen} onClose={() => setAccountOpen(false)} />
+      <AiConfigDialog open={aiConfigOpen} onClose={() => setAiConfigOpen(false)} />
 
       {/* 移动端底部深色毛玻璃 Dock（桌面端隐藏） */}
       {!searchOpen && !active && !fullBoard && (

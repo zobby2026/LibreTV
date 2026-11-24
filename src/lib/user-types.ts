@@ -23,11 +23,18 @@ export interface InviteRecord {
   usedByUsername?: string;
 }
 
+export interface AiSharedSettings {
+  apiKey?: string;
+  baseUrl?: string;
+  model?: string;
+}
+
 /** 全局共享配置：源与订阅由管理员维护，所有用户共用（含游客） */
 export interface SharedConfig {
   customAPIs: unknown[];
   subscriptions: unknown[];
   liveSubscriptions: unknown[];
+  aiConfig?: AiSharedSettings;
   updatedAt: number;
   updatedBy?: string;
 }
