@@ -1,11 +1,17 @@
 'use client';
 
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Icon, type IconName } from './icon';
-import { SourceManagerDrawer } from './source-manager';
+
+/** 按需加载源管理抽屉，避免把 53KB 源管理代码打进全站根 layout bundle */
+const SourceManagerDrawer = dynamic(
+  () => import('./source-manager').then((m) => m.SourceManagerDrawer),
+  { ssr: false }
+);
 
 /**
  * 移动端底部四栏导航（发现 / 直播 / 片库 / 设置）。
@@ -18,6 +24,7 @@ export function MobileDock() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [drawerMounted, setDrawerMounted] = useState(false);
 
   // 播放页是全屏体验，隐藏 Dock。影展首页自带底部导航，避免叠两层。
   if (pathname.startsWith('/watch')) return null;
@@ -38,12 +45,17 @@ export function MobileDock() {
             active={false}
             icon="gear"
             label="设置"
-            onClick={() => setSettingsOpen(true)}
+            onClick={() => {
+              setDrawerMounted(true);
+              setSettingsOpen(true);
+            }}
           />
         </div>
       </nav>
 
-      <SourceManagerDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      {drawerMounted && (
+        <SourceManagerDrawer open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      )}
     </>
   );
 }

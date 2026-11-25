@@ -173,6 +173,21 @@ export async function getSoleUsername(): Promise<string | null> {
   return users.length === 1 ? users[0].username : null;
 }
 
+/** 一次 KV 读取同时获取站点账号状态，避免 /api/status 串行读 3 次 users.json */
+export async function getAuthSummary(userId: string | null): Promise<{
+  userCount: number;
+  user: PublicUser | null;
+  soleUsername: string | null;
+}> {
+  const users = await readUsers();
+  const matched = userId ? users.find((u) => u.id === userId) : undefined;
+  return {
+    userCount: users.length,
+    user: matched ? toPublic(matched) : null,
+    soleUsername: users.length === 1 ? users[0].username : null,
+  };
+}
+
 // —— 登录 ——
 
 export async function authenticate(

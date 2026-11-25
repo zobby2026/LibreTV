@@ -1,3 +1,10 @@
 # 带内容哈希的静态资源可以长期缓存，重复打开不再重新下载脚本和样式
 /_next/static/*
   Cache-Control: public,max-age=31536000,immutable
+
+# 品牌图标与 PWA 静态图标长期缓存
+/icons/*
+  Cache-Control: public,max-age=2592000,immutable
+
+/brand/*
+  Cache-Control: public,max-age=2592000,immutable

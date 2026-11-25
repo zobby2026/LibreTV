@@ -1,10 +1,13 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/client-api';
+import { aggregateResults, type AggregatedGroup } from '@/lib/aggregate-results';
 import { catalog, flattenCatalog, type CatalogEditorial, type CatalogItem, type CatalogMood } from '@/lib/catalog';
 import { clearAllHistory } from '@/lib/db';
+import { classifySearchIntent, normalizeDirectTitle } from '@/lib/search-intent';
 import { isInDisabledSubscription, isSourceDisabled, resolveSource, useAppStore } from '@/lib/store';
 import { buildWatchUrl, validateSourceUrl } from '@/lib/utils';
 import { fetchDecisionCardCached, getCachedDecisionCard, type DecisionCardData } from '@/lib/decision-card-cache';
@@ -19,14 +22,20 @@ import { useAuth } from './auth';
 import { BrandMark, BrandWordmark } from './brand-mark';
 import { CinemaImg } from './cinema-img';
 import { ContinueWatching } from './continue-watching';
-import { CurateStage, type StageMovieStatus } from './curate-stage';
-import { DecisionCard } from './decision-card';
-import { FestivalResult, type FestivalMovieItem } from './festival-result';
-import { AccountPanel } from './account-panel';
-import { AiConfigDialog } from './ai-config-dialog';
-import { SourceManagerDrawer } from './source-manager';
+import type { StageMovieStatus } from './curate-stage';
+import type { DirectSourceFailure } from './direct-search-panel';
+import type { FestivalMovieItem } from './festival-result';
 import { useToast } from './toast';
 import type { SearchResultItem, SourceConfig } from '@/lib/types';
+
+/** 重组件按需懒加载：点击设置、长按看卡或发起搜索后才加载对应 JS chunk，大幅缩小首屏体积 */
+const CurateStage = dynamic(() => import('./curate-stage').then((m) => m.CurateStage), { ssr: false });
+const FestivalResult = dynamic(() => import('./festival-result').then((m) => m.FestivalResult), { ssr: false });
+const DirectSearchPanel = dynamic(() => import('./direct-search-panel').then((m) => m.DirectSearchPanel), { ssr: false });
+const DecisionCard = dynamic(() => import('./decision-card').then((m) => m.DecisionCard), { ssr: false });
+const AccountPanel = dynamic(() => import('./account-panel').then((m) => m.AccountPanel), { ssr: false });
+const AiConfigDialog = dynamic(() => import('./ai-config-dialog').then((m) => m.AiConfigDialog), { ssr: false });
+const SourceManagerDrawer = dynamic(() => import('./source-manager').then((m) => m.SourceManagerDrawer), { ssr: false });
 
 const BASE_MOODS: CatalogMood[] = [
   { emoji: '🌧️', label: '深夜 emo', sub: '孤独与治愈', query: '适合深夜一个人看、情绪细腻且有治愈感的文艺电影', bg: 'linear-gradient(135deg,#1e293b,#0f172a)', slot: 'night' },
@@ -61,6 +70,19 @@ const SOURCE_TIMEOUT_MS = 3000;
 type HitItem = FestivalMovieItem;
 
 const CATALOG_FLAT = flattenCatalog(catalog);
+const CATALOG_TITLE_SET = new Set(CATALOG_FLAT.flatMap((m) => [m.t, m.t.toLowerCase()]));
+
+function useIsDesktop(): boolean {
+  const [desktop, setDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const sync = () => setDesktop(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
+  return desktop;
+}
 
 function hashColor(seed: string): string {
   let h = 0;
@@ -155,10 +177,30 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
   const [heroIdx, setHeroIdx] = useState(0);
   const [fullBoard, setFullBoard] = useState<(typeof boards)[number] | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const isDesktop = useIsDesktop();
   const [sourceOpen, setSourceOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [aiConfigOpen, setAiConfigOpen] = useState(false);
+  const [mountedPanels, setMountedPanels] = useState({ source: false, account: false });
+  useEffect(() => {
+    if (sourceOpen) setMountedPanels((p) => (p.source ? p : { ...p, source: true }));
+  }, [sourceOpen]);
+  useEffect(() => {
+    if (accountOpen) setMountedPanels((p) => (p.account ? p : { ...p, account: true }));
+  }, [accountOpen]);
   const [query, setQuery] = useState('');
+  const [searchIntentLock, setSearchIntentLock] = useState<'auto' | 'direct' | 'ai'>('auto');
+  const [searchViewMode, setSearchViewMode] = useState<'ai' | 'direct'>('ai');
+  const [directLoading, setDirectLoading] = useState(false);
+  const [directSettled, setDirectSettled] = useState(0);
+  const [directGroups, setDirectGroups] = useState<AggregatedGroup[]>([]);
+  const [directFailures, setDirectFailures] = useState<DirectSourceFailure[]>([]);
+  const directRunId = useRef(0);
+  const resolvedSearchMode = useMemo<'ai' | 'direct'>(() => {
+    if (searchIntentLock !== 'auto') return searchIntentLock;
+    if (!query.trim()) return 'ai';
+    return classifySearchIntent(query, CATALOG_TITLE_SET);
+  }, [searchIntentLock, query]);
   const activePlaceholders = useMemo(() => {
     const list = catalog.placeholders;
     return Array.isArray(list) && list.length > 0 ? list : PLACEHOLDERS;
@@ -345,13 +387,132 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
     rail.scrollTo({ left: target * rail.clientWidth, behavior: 'smooth' });
   };
 
+  const directAbortRef = useRef<AbortController | null>(null);
+
+  const toggleSearchIntent = () => {
+    setSearchIntentLock((prev) => (prev === 'auto' ? 'direct' : prev === 'direct' ? 'ai' : 'auto'));
+  };
+
+  const startDirectSearch = (q: string) => {
+    const text = normalizeDirectTitle(q).slice(0, 100);
+    if (!text) return;
+    curateRunId.current += 1;
+    const runId = ++directRunId.current;
+    directAbortRef.current?.abort();
+    const controller = new AbortController();
+    directAbortRef.current = controller;
+
+    setQuery(text);
+    setSearchOpen(true);
+    setStageActive(false);
+    setSearchViewMode('direct');
+    setFestivalAccent(null);
+    setDirectLoading(true);
+    setDirectSettled(0);
+    setDirectGroups([]);
+    setDirectFailures([]);
+
+    const ordered = sortSourcesBySpeed(selectedSources);
+    if (ordered.length === 0) {
+      setDirectLoading(false);
+      return;
+    }
+
+    const collected: SearchResultItem[] = [];
+    const seenKeys = new Set<string>();
+    const fails: DirectSourceFailure[] = [];
+    let settled = 0;
+
+    void api
+      .search(text, ordered, yellowFilter, {
+        signal: controller.signal,
+        onSource: (outcome) => {
+          if (directRunId.current !== runId) return;
+          settled += 1;
+          setDirectSettled(settled);
+          if (outcome.ok) {
+            let changed = false;
+            for (const item of outcome.list) {
+              const k = `${item.sourceKey}:${item.vodId}`;
+              if (seenKeys.has(k)) continue;
+              seenKeys.add(k);
+              collected.push(item);
+              changed = true;
+            }
+            if (changed) {
+              const sorted = [...collected].sort((a, b) => {
+                const an = (a.name || '').trim().toLowerCase();
+                const bn = (b.name || '').trim().toLowerCase();
+                const ql = text.toLowerCase();
+                const ae = an === ql ? 2 : an.includes(ql) ? 1 : 0;
+                const be = bn === ql ? 2 : bn.includes(ql) ? 1 : 0;
+                return be - ae;
+              });
+              setDirectGroups(aggregateResults(sorted));
+            }
+          } else {
+            const src = ordered.find((s) => s.key === outcome.sourceKey);
+            fails.push({
+              sourceKey: outcome.sourceKey,
+              name: src?.name || outcome.sourceKey,
+              timedOut: outcome.timedOut,
+            });
+            setDirectFailures([...fails]);
+          }
+        },
+      })
+      .then((finalRes) => {
+        if (directRunId.current !== runId) return;
+        if (finalRes.list?.length && collected.length === 0) {
+          setDirectGroups(aggregateResults(finalRes.list));
+        }
+      })
+      .catch(() => {
+        /* 取消或网络异常静默收尾 */
+      })
+      .finally(() => {
+        if (directRunId.current === runId) {
+          setDirectLoading(false);
+        }
+      });
+  };
+
+  const openDirectGroup = (group: AggregatedGroup) => {
+    const first = group.items[0];
+    const safePoster =
+      group.pic && /^https?:\/\//i.test(group.pic)
+        ? `/api/proxy-img?url=${encodeURIComponent(group.pic)}`
+        : group.pic || '';
+    const pseudoItem: CatalogItem = {
+      id: first ? `${first.sourceKey}_${first.vodId}` : group.key,
+      t: group.name,
+      y: Number(group.year) || 0,
+      d: group.year || '',
+      r: 0,
+      a: hashColor(group.name),
+      b: '#0d0f14',
+      ty: group.typeName || '影视',
+      poster: safePoster,
+      backdrop: safePoster,
+      w: group.remarks || '',
+    };
+    setActive(pseudoItem);
+    setHits(group.items);
+    setHitsLoading(false);
+  };
+
   const startSearch = (q: string) => {
     const text = q.trim();
     if (!text) return;
+    directRunId.current += 1;
+    directAbortRef.current?.abort();
+    setDirectLoading(false);
+
     const runId = ++curateRunId.current;
     const preset = matchCuratePreset(text);
     setQuery(text);
     setSearchOpen(true);
+    setSearchViewMode('ai');
     setStageActive(true);
     setSearchStep(0);
     setFestivalEdition(getNextEditionNumber());
@@ -419,10 +580,19 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
 
   const handleSearchSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const text = query.trim() || currentFullPlaceholderRef.current || activePlaceholders[0];
-    if (!text) return;
-    setQuery(text);
-    startSearch(text);
+    const raw = query.trim();
+    if (!raw) {
+      const sample = currentFullPlaceholderRef.current || activePlaceholders[0];
+      if (!sample) return;
+      setQuery(sample);
+      startSearch(sample);
+      return;
+    }
+    if (resolvedSearchMode === 'direct') {
+      startDirectSearch(raw);
+    } else {
+      startSearch(raw);
+    }
   };
 
   const openQuick = (movie: CatalogItem) => {
@@ -466,6 +636,9 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
 
   const closeSearch = () => {
     curateRunId.current += 1;
+    directRunId.current += 1;
+    directAbortRef.current?.abort();
+    setDirectLoading(false);
     setStageActive(false);
     setSearchOpen(false);
     setFestivalAccent(null);
@@ -529,17 +702,31 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
             className="aur ml-auto w-full max-w-md"
             onSubmit={handleSearchSubmit}
           >
-            <div className="flex items-center gap-2 rounded-[18.5px] bg-[#0d0f14] px-3.5 py-1.5">
-              <span className="text-xs" style={{ color: 'var(--a)' }}>✦</span>
+            <div className="flex items-center gap-2 rounded-[18.5px] bg-[#0d0f14] px-3 py-1.5">
+              <button
+                type="button"
+                onClick={toggleSearchIntent}
+                title={
+                  searchIntentLock === 'auto'
+                    ? '智能模式（片名直搜 / 长句 AI 策展），点击切换锁定'
+                    : searchIntentLock === 'direct'
+                    ? '已锁定直搜片源，点击切换'
+                    : '已锁定 AI 影展，点击切换'
+                }
+                className="shrink-0 rounded-lg border border-white/10 bg-white/[0.06] px-2 py-0.5 font-mono text-[10px] transition hover:bg-white/15"
+                style={{ color: resolvedSearchMode === 'direct' ? '#f3efe6' : 'var(--a)' }}
+              >
+                {resolvedSearchMode === 'direct' ? '搜片' : '✦ AI'}
+              </button>
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={placeholder}
-                aria-label="AI 搜索"
+                aria-label="搜片名或让 AI 策展"
                 className="flex-1 bg-transparent text-xs text-[#f3efe6] placeholder:text-white/40 focus:outline-none"
               />
               <button type="submit" className="rounded-xl px-3 py-1 text-xs font-medium text-[#08090b]" style={{ background: 'var(--a)' }}>
-                搜索
+                {resolvedSearchMode === 'direct' ? '搜片' : '找片'}
               </button>
             </div>
           </form>
@@ -613,48 +800,58 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
             onScroll={onHeroScroll}
             className="no-scrollbar flex h-full w-full snap-x snap-mandatory overflow-x-auto"
           >
-            {hero.map((m, idx) => (
-              <div
-                key={m.id}
-                className="relative flex h-full w-full flex-shrink-0 snap-center flex-col justify-end bg-[#08090b]"
-              >
-                {(m.backdrop || m.poster) && (
-                  <CinemaImg
-                    src={toHeroMedia(m.backdrop || m.poster)}
-                    fetchPriority={idx === 0 ? 'high' : undefined}
-                    loading={idx === 0 ? 'eager' : 'lazy'}
-                    decoding="async"
-                    className="pointer-events-none absolute inset-0 h-full w-full object-cover object-top opacity-80"
-                  />
-                )}
-                {/* 仅保留底部融入背景的暗角渐变，顶部保持海报自然延伸不加色块 */}
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#08090b] via-[#08090b]/40 to-transparent lg:bg-[linear-gradient(90deg,rgba(8,9,11,0.86)_0%,rgba(8,9,11,0.38)_52%,rgba(8,9,11,0.12)_100%),linear-gradient(0deg,#08090b_0%,rgba(8,9,11,0.22)_38%,transparent_68%)]" />
-                <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-col justify-end px-5 pb-[108px] lg:flex-row lg:items-end lg:justify-between lg:px-14 lg:pb-14">
-                  <div className="max-w-xl">
-                    <div className="rank-stroke -mb-6 select-none font-mono">{idx + 1}</div>
-                    <div className="mb-1.5 flex items-center gap-2 font-mono text-xs">
-                      <span className="rounded border border-white/10 bg-black/50 px-2 py-0.5 text-[#ffd27a]">★ {m.r}</span>
-                      <span className="text-white/70">{m.d} · {m.ty}</span>
-                    </div>
-                    <h1 className="mb-2 font-serif text-[34px] font-bold leading-tight tracking-tight lg:text-5xl">{m.t}</h1>
-                    <p className="mb-5 line-clamp-2 font-mono text-xs leading-relaxed text-[#f3efe6]/85 lg:text-sm">AI ▸ {m.ai || m.w}</p>
-                    <div className="flex items-center gap-2.5">
-                      <button type="button" onClick={() => void openDetail(m)} className="rounded-full px-5 py-2 text-xs font-medium text-[#08090b] active:scale-95 lg:text-sm" style={{ background: 'var(--a)' }}>
-                        ▶ 找片源
-                      </button>
-                      <button type="button" onClick={() => openQuick(m)} className="glass rounded-full px-4 py-2 text-xs text-white/90 hover:bg-white/15 lg:text-sm">
-                        ✦ 30 秒决策卡
-                      </button>
-                    </div>
-                  </div>
-                  {m.poster && (
-                    <div className="relative z-10 hidden w-44 shrink-0 overflow-hidden rounded-2xl border border-white/15 shadow-2xl lg:block">
-                      <CinemaImg src={toListPoster(m.poster)} loading={idx === 0 ? 'eager' : 'lazy'} className="aspect-[2/3] w-full object-cover" />
-                    </div>
+            {hero.map((m, idx) => {
+              const nearHero =
+                idx === 0 ||
+                Math.abs(idx - heroIdx) <= 1 ||
+                (hero.length > 2 && Math.abs(idx - heroIdx) >= hero.length - 1);
+              const heroImgSrc = isDesktop
+                ? toHeroMedia(m.backdrop || m.poster)
+                : toListPoster(m.poster) || toHeroMedia(m.backdrop);
+              return (
+                <div
+                  key={m.id}
+                  className="relative flex h-full w-full flex-shrink-0 snap-center flex-col justify-end bg-[#08090b]"
+                  style={{ background: `linear-gradient(155deg, ${m.a}2a 0%, #08090b 65%)` }}
+                >
+                  {nearHero && heroImgSrc && (
+                    <CinemaImg
+                      src={heroImgSrc}
+                      fetchPriority={idx === 0 ? 'high' : undefined}
+                      loading={idx === 0 ? 'eager' : 'lazy'}
+                      decoding="async"
+                      className="pointer-events-none absolute inset-0 h-full w-full object-cover object-top opacity-80"
+                    />
                   )}
+                  {/* 仅保留底部融入背景的暗角渐变，顶部保持海报自然延伸不加色块 */}
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#08090b] via-[#08090b]/40 to-transparent lg:bg-[linear-gradient(90deg,rgba(8,9,11,0.86)_0%,rgba(8,9,11,0.38)_52%,rgba(8,9,11,0.12)_100%),linear-gradient(0deg,#08090b_0%,rgba(8,9,11,0.22)_38%,transparent_68%)]" />
+                  <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-col justify-end px-5 pb-[108px] lg:flex-row lg:items-end lg:justify-between lg:px-14 lg:pb-14">
+                    <div className="max-w-xl">
+                      <div className="rank-stroke -mb-6 select-none font-mono">{idx + 1}</div>
+                      <div className="mb-1.5 flex items-center gap-2 font-mono text-xs">
+                        <span className="rounded border border-white/10 bg-black/50 px-2 py-0.5 text-[#ffd27a]">★ {m.r}</span>
+                        <span className="text-white/70">{m.d} · {m.ty}</span>
+                      </div>
+                      <h1 className="mb-2 font-serif text-[34px] font-bold leading-tight tracking-tight lg:text-5xl">{m.t}</h1>
+                      <p className="mb-5 line-clamp-2 font-mono text-xs leading-relaxed text-[#f3efe6]/85 lg:text-sm">AI ▸ {m.ai || m.w}</p>
+                      <div className="flex items-center gap-2.5">
+                        <button type="button" onClick={() => void openDetail(m)} className="rounded-full px-5 py-2 text-xs font-medium text-[#08090b] active:scale-95 lg:text-sm" style={{ background: 'var(--a)' }}>
+                          ▶ 找片源
+                        </button>
+                        <button type="button" onClick={() => openQuick(m)} className="glass rounded-full px-4 py-2 text-xs text-white/90 hover:bg-white/15 lg:text-sm">
+                          ✦ 30 秒决策卡
+                        </button>
+                      </div>
+                    </div>
+                    {isDesktop && nearHero && m.poster && (
+                      <div className="relative z-10 hidden w-44 shrink-0 overflow-hidden rounded-2xl border border-white/15 shadow-2xl lg:block">
+                        <CinemaImg src={toListPoster(m.poster)} loading={idx === 0 ? 'eager' : 'lazy'} className="aspect-[2/3] w-full object-cover" />
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* 轮播小圆点进度：移动端位于搜索框正上方，桌面端位于海报底部居中 */}
@@ -683,16 +880,26 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
             className="aur absolute bottom-3 left-4 right-4 z-30 shadow-2xl lg:hidden"
             onSubmit={handleSearchSubmit}
           >
-            <div className="flex items-center gap-2 rounded-[18.5px] bg-[#0d0f14] px-3.5 py-2.5">
-              <span className="text-sm" style={{ color: 'var(--a)' }}>✦</span>
+            <div className="flex items-center gap-2 rounded-[18.5px] bg-[#0d0f14] px-3 py-2">
+              <button
+                type="button"
+                onClick={toggleSearchIntent}
+                aria-label="切换直搜片源或 AI 影展"
+                className="shrink-0 rounded-lg border border-white/10 bg-white/[0.06] px-2 py-1 font-mono text-[11px] transition active:scale-95"
+                style={{ color: resolvedSearchMode === 'direct' ? '#f3efe6' : 'var(--a)' }}
+              >
+                {resolvedSearchMode === 'direct' ? '搜片' : '✦ AI'}
+              </button>
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={placeholder}
-                aria-label="AI 搜索"
-                className="flex-1 bg-transparent text-sm text-[#f3efe6] placeholder:text-white/40 focus:outline-none"
+                aria-label="搜片名或让 AI 策展"
+                className="min-w-0 flex-1 bg-transparent text-sm text-[#f3efe6] placeholder:text-white/40 focus:outline-none"
               />
-              <button type="submit" className="rounded-xl px-3 py-1 text-xs font-medium text-[#08090b]" style={{ background: 'var(--a)' }}>搜索</button>
+              <button type="submit" className="shrink-0 rounded-xl px-3 py-1 text-xs font-medium text-[#08090b]" style={{ background: 'var(--a)' }}>
+                {resolvedSearchMode === 'direct' ? '搜片' : '找片'}
+              </button>
             </div>
           </form>
         </section>
@@ -755,11 +962,11 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
                             ✓
                           </span>
                         ) : mood.hot ? (
-                          <span className="rounded-full bg-black/45 px-1.5 py-0.5 font-mono text-[9px] text-[#ffd27a] backdrop-blur-sm">
+                          <span className="rounded-full bg-black/65 px-1.5 py-0.5 font-mono text-[9px] text-[#ffd27a]">
                             热议
                           </span>
                         ) : isTimePick ? (
-                          <span className="rounded-full bg-black/45 px-1.5 py-0.5 font-mono text-[9px] text-white/85 backdrop-blur-sm">
+                          <span className="rounded-full bg-black/65 px-1.5 py-0.5 font-mono text-[9px] text-white/90">
                             此刻
                           </span>
                         ) : null}
@@ -863,7 +1070,7 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
                             {board.sub}
                           </span>
                         </div>
-                        <span className="flex items-center gap-0.5 rounded-full border border-white/15 bg-black/45 px-1.5 py-0.5 font-mono text-[8px] text-[#ffd27a] backdrop-blur-md">
+                        <span className="flex items-center gap-0.5 rounded-full border border-white/15 bg-black/65 px-1.5 py-0.5 font-mono text-[8px] text-[#ffd27a]">
                           TOP 10 ›
                         </span>
                       </div>
@@ -903,7 +1110,7 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
                     className="flex aspect-[2/3] w-full flex-col justify-between rounded-2xl border border-white/15 p-3.5 text-left transition-transform hover:-translate-y-1 active:scale-95"
                     style={{ background: `linear-gradient(150deg, ${item.card.accent || 'var(--a)'}, #14161d 86%)` }}
                   >
-                    <div className="inline-flex w-fit items-center rounded-full bg-black/30 px-2 py-0.5 font-mono text-[9px] tracking-wider text-white/90 backdrop-blur-sm">
+                    <div className="inline-flex w-fit items-center rounded-full bg-black/45 px-2 py-0.5 font-mono text-[9px] tracking-wider text-white/90">
                       {item.card.badge}
                     </div>
                     <div>
@@ -953,7 +1160,7 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
                       <button
                         type="button"
                         aria-label={`${item.movie.t} 30 秒决策卡`}
-                        className="absolute right-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-black/45 text-[11px] leading-none text-[#f3efe6] backdrop-blur-md transition-transform hover:scale-110 active:scale-90"
+                        className="absolute right-1.5 top-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-black/70 text-[11px] leading-none text-[#f3efe6] transition-transform hover:scale-110 active:scale-90"
                         onPointerDown={(e) => e.stopPropagation()}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -962,7 +1169,7 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
                       >
                         ✦
                       </button>
-                      <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-black/55 px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#ffd27a] backdrop-blur-sm">★ {item.movie.r}</span>
+                      <span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-black/70 px-1.5 py-0.5 font-mono text-[10px] font-bold text-[#ffd27a]">★ {item.movie.r}</span>
                     </div>
                     <div className="mt-1.5 truncate text-[11px] font-medium text-[#f3efe6]/90 lg:text-xs">{item.movie.t}</div>
                   </div>
@@ -972,7 +1179,7 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
           </div>
         )}
 
-        {tab === 'library' && <LibraryPane onOpen={(item) => void openDetail(item)} onSearch={startSearch} />}
+        {tab === 'library' && <LibraryPane onOpen={(item) => void openDetail(item)} onSearch={startDirectSearch} />}
 
         {tab === 'live' && (
           <div className="flex min-h-[75vh] flex-col items-center justify-center px-6 text-center">
@@ -993,12 +1200,12 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
         )}
       </div>
 
-      {/* AI 搜索结果浮层（手机全屏，桌面居中宽屏） */}
+      {/* 搜索结果浮层：正常片名直搜聚合 / AI 影展策展走廊 */}
       {searchOpen && (
         <div className="fixed inset-0 z-40 overflow-y-auto bg-[#08090b]/95 backdrop-blur-md">
           <div className="relative mx-auto min-h-screen max-w-4xl bg-[#08090b] pb-16 lg:my-6 lg:min-h-0 lg:overflow-hidden lg:rounded-3xl lg:border lg:border-white/10">
             <div className="pointer-events-none absolute inset-x-0 top-0 h-56 overflow-hidden">
-              {searchLead && (searchLead.backdrop || searchLead.poster) ? (
+              {searchViewMode === 'ai' && searchLead && (searchLead.backdrop || searchLead.poster) ? (
                 <CinemaImg
                   src={toHeroMedia(searchLead.backdrop || searchLead.poster)}
                   loading="eager"
@@ -1016,41 +1223,69 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
 
             <div className="relative z-10 px-4 pt-4 lg:px-8 lg:pt-6">
               <div className="mb-5 flex items-center gap-2">
-                <button type="button" className="glass rounded-full px-3 py-1.5 text-xs text-white/80 hover:bg-white/15" onClick={closeSearch}>‹ 返回</button>
-                <form className="aur flex-1" onSubmit={handleSearchSubmit}>
+                <button type="button" className="glass shrink-0 rounded-full px-3 py-1.5 text-xs text-white/80 hover:bg-white/15" onClick={closeSearch}>‹ 返回</button>
+                <form className="aur min-w-0 flex-1" onSubmit={handleSearchSubmit}>
                   <div className="flex items-center gap-2 rounded-[18.5px] bg-[#0d0f14] px-3 py-2">
-                    <span className="text-xs" style={{ color: 'var(--a)' }}>✦</span>
+                    <button
+                      type="button"
+                      onClick={toggleSearchIntent}
+                      title="点击切换「搜片 / AI 影展」"
+                      className="shrink-0 rounded-lg border border-white/10 bg-white/[0.06] px-2 py-0.5 font-mono text-[10px] transition hover:bg-white/15"
+                      style={{ color: resolvedSearchMode === 'direct' ? '#f3efe6' : 'var(--a)' }}
+                    >
+                      {resolvedSearchMode === 'direct' ? '搜片' : '✦ AI'}
+                    </button>
                     <input
                       ref={searchInputRef}
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder={placeholder}
-                      className="flex-1 bg-transparent text-xs text-white placeholder:text-white/40 focus:outline-none lg:text-sm"
+                      className="min-w-0 flex-1 bg-transparent text-xs text-white placeholder:text-white/40 focus:outline-none lg:text-sm"
                     />
-                    <button type="submit" className="rounded-lg px-3 py-1 text-xs font-medium text-[#08090b]" style={{ background: 'var(--a)' }}>布展</button>
+                    <button type="submit" className="shrink-0 rounded-lg px-3 py-1 text-xs font-medium text-[#08090b]" style={{ background: 'var(--a)' }}>
+                      {resolvedSearchMode === 'direct' ? '搜片' : '布展'}
+                    </button>
                   </div>
                 </form>
               </div>
 
-              <FestivalResult
-                query={query}
-                edition={festivalEdition}
-                meta={festivalMeta}
-                notes={festivalNotes}
-                openingLine={festivalCopy.openingLine}
-                withdrawLine={festivalCopy.withdrawLine}
-                results={results}
-                filteredOut={filteredOut}
-                verifying={searchStep < 4}
-                onActiveColorChange={(color) => setFestivalAccent(color)}
-                onPlayNow={(item) => {
-                  if (item.hits[0]) play(item.hits[0]);
-                  else void openDetail(item);
-                }}
-                onOpenDetail={(item) => void openDetail(item)}
-                onResetFestival={resetFestival}
-                onToast={(msg) => toast(msg, 'success')}
-              />
+              {searchViewMode === 'direct' ? (
+                <DirectSearchPanel
+                  query={query}
+                  loading={directLoading}
+                  settledCount={directSettled}
+                  totalSources={selectedSources.length}
+                  groups={directGroups}
+                  failures={directFailures}
+                  hasSources={selectedSources.length > 0}
+                  onOpenGroup={openDirectGroup}
+                  onSwitchToAi={(q) => startSearch(q)}
+                  onOpenSettings={() => {
+                    closeSearch();
+                    setSettingsOpen(true);
+                  }}
+                />
+              ) : (
+                <FestivalResult
+                  query={query}
+                  edition={festivalEdition}
+                  meta={festivalMeta}
+                  notes={festivalNotes}
+                  openingLine={festivalCopy.openingLine}
+                  withdrawLine={festivalCopy.withdrawLine}
+                  results={results}
+                  filteredOut={filteredOut}
+                  verifying={searchStep < 4}
+                  onActiveColorChange={(color) => setFestivalAccent(color)}
+                  onPlayNow={(item) => {
+                    if (item.hits[0]) play(item.hits[0]);
+                    else void openDetail(item);
+                  }}
+                  onOpenDetail={(item) => void openDetail(item)}
+                  onResetFestival={resetFestival}
+                  onToast={(msg) => toast(msg, 'success')}
+                />
+              )}
             </div>
           </div>
         </div>
@@ -1371,9 +1606,15 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
         </div>
       )}
 
-      <SourceManagerDrawer open={sourceOpen} onClose={() => setSourceOpen(false)} />
-      <AccountPanel open={accountOpen} onClose={() => setAccountOpen(false)} />
-      <AiConfigDialog open={aiConfigOpen} onClose={() => setAiConfigOpen(false)} />
+      {mountedPanels.source && (
+        <SourceManagerDrawer open={sourceOpen} onClose={() => setSourceOpen(false)} />
+      )}
+      {mountedPanels.account && (
+        <AccountPanel open={accountOpen} onClose={() => setAccountOpen(false)} />
+      )}
+      {aiConfigOpen && (
+        <AiConfigDialog open={aiConfigOpen} onClose={() => setAiConfigOpen(false)} />
+      )}
 
       {/* 移动端底部深色毛玻璃 Dock（桌面端隐藏） */}
       {!searchOpen && !active && !fullBoard && (
@@ -1565,7 +1806,12 @@ function LibraryPane({ onOpen, onSearch }: { onOpen: (item: CatalogItem) => void
   return (
     <div className="px-4 pb-6 pt-4 lg:px-0 lg:pt-6">
       <form className="glass mb-4 flex max-w-xl items-center gap-2 rounded-xl px-3.5 py-2.5" onSubmit={(e) => { e.preventDefault(); if (keyword.trim()) onSearch(keyword); }}>
-        <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="筛选片名，回车交给 AI 策展" className="flex-1 bg-transparent text-xs text-white placeholder:text-white/40 focus:outline-none lg:text-sm" />
+        <input value={keyword} onChange={(e) => setKeyword(e.target.value)} placeholder="筛选片名，回车直接全网搜片源" className="flex-1 bg-transparent text-xs text-white placeholder:text-white/40 focus:outline-none lg:text-sm" />
+        {keyword.trim() && (
+          <button type="submit" className="shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-medium text-[#08090b]" style={{ background: 'var(--a)' }}>
+            搜片
+          </button>
+        )}
       </form>
       <div className="mb-5 space-y-2.5 text-xs">
         <div className="no-scrollbar flex gap-5 overflow-x-auto border-b border-white/10 pb-2.5">

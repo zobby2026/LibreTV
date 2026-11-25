@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { guardRequest } from '@/lib/api-guard';
 import { withEdgeCache } from '@/lib/edge-cache';
 
 export const runtime = 'nodejs';
@@ -7,14 +6,11 @@ export const runtime = 'nodejs';
 const THIRTY_DAYS = 60 * 60 * 24 * 30;
 const SIZES = new Set(['w342', 'w500', 'w780']);
 
-/** 反代 TMDB 海报：Cloudflare caches.default 边缘缓存 30 天，严禁加载 original 原图。 */
+/** 反代 TMDB 公开海报：严格校验尺寸与文件名格式，Cloudflare 边缘缓存 30 天，不要求登录态。 */
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ size: string; filename: string }> }
 ) {
-  const guarded = guardRequest(req);
-  if (guarded) return guarded;
-
   const { size: rawSize, filename } = await params;
   // 严禁加载 original 原图，老路径自动降级为 w780
   const size = rawSize === 'original' ? 'w780' : rawSize;

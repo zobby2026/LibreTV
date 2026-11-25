@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { guardRequest } from '@/lib/api-guard';
 import { withEdgeCache } from '@/lib/edge-cache';
 
 export const runtime = 'nodejs';
@@ -12,13 +11,10 @@ const MOBILE_UA =
 
 /**
  * GET /api/img?url=...
- * 专门反代豆瓣图片（img*.doubanio.com，附带 Referer: https://movie.douban.com/）
- * 与 TMDB 图片，写入 Cloudflare caches.default 边缘缓存 30 天。
+ * 专门反代公开影视海报（仅白名单 img*.doubanio.com 与 image.tmdb.org），
+ * 写入 Cloudflare caches.default 边缘缓存 30 天，不要求登录态以便跨用户共享边缘缓存。
  */
 export async function GET(req: Request) {
-  const guarded = guardRequest(req);
-  if (guarded) return guarded;
-
   const raw = new URL(req.url).searchParams.get('url')?.trim() || '';
   let parsed: URL;
   try {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { isPasswordConfigured, sessionUserId } from '@/lib/auth';
-import { countUsers, findUserById, getSoleUsername } from '@/lib/user-store';
+import { getAuthSummary } from '@/lib/user-store';
 import { getEnvSources } from '@/lib/env-sources';
 import { getEnvLiveSources } from '@/lib/env-live-sources';
 import { getEnvSubscriptions } from '@/lib/env-subscriptions';
@@ -21,14 +21,16 @@ export async function GET(req: Request) {
   const userId = sessionUserId(req.headers.get('cookie'));
 
   let userCount = 0;
+  let user = null;
+  let soleUsername: string | null = null;
   try {
-    userCount = await countUsers();
+    const summary = await getAuthSummary(userId);
+    userCount = summary.userCount;
+    user = summary.user;
+    soleUsername = summary.soleUsername;
   } catch (err) {
     console.error('[zobby] 读取用户存储失败', err);
   }
-  const user = userId ? await findUserById(userId).catch(() => null) : null;
-  // 单账号站点：登录框按这个用户名预填，客户端不必猜 admin
-  const soleUsername = userCount === 1 ? await getSoleUsername().catch(() => null) : null;
 
   const payload: AuthStatusResponse & Record<string, unknown> = {
     user,
