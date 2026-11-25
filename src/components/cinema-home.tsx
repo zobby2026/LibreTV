@@ -189,18 +189,12 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
     if (accountOpen) setMountedPanels((p) => (p.account ? p : { ...p, account: true }));
   }, [accountOpen]);
   const [query, setQuery] = useState('');
-  const [searchIntentLock, setSearchIntentLock] = useState<'auto' | 'direct' | 'ai'>('auto');
   const [searchViewMode, setSearchViewMode] = useState<'ai' | 'direct'>('ai');
   const [directLoading, setDirectLoading] = useState(false);
   const [directSettled, setDirectSettled] = useState(0);
   const [directGroups, setDirectGroups] = useState<AggregatedGroup[]>([]);
   const [directFailures, setDirectFailures] = useState<DirectSourceFailure[]>([]);
   const directRunId = useRef(0);
-  const resolvedSearchMode = useMemo<'ai' | 'direct'>(() => {
-    if (searchIntentLock !== 'auto') return searchIntentLock;
-    if (!query.trim()) return 'ai';
-    return classifySearchIntent(query, CATALOG_TITLE_SET);
-  }, [searchIntentLock, query]);
   const activePlaceholders = useMemo(() => {
     const list = catalog.placeholders;
     return Array.isArray(list) && list.length > 0 ? list : PLACEHOLDERS;
@@ -389,10 +383,6 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
 
   const directAbortRef = useRef<AbortController | null>(null);
 
-  const toggleSearchIntent = () => {
-    setSearchIntentLock((prev) => (prev === 'auto' ? 'direct' : prev === 'direct' ? 'ai' : 'auto'));
-  };
-
   const startDirectSearch = (q: string) => {
     const text = normalizeDirectTitle(q).slice(0, 100);
     if (!text) return;
@@ -578,22 +568,80 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
     });
   };
 
+  const triggerDirectSearch = (targetInput?: HTMLInputElement | null) => {
+    const raw = query.trim();
+    if (!raw) {
+      toast('请输入片名后搜片', 'info');
+      targetInput?.focus();
+      return;
+    }
+    startDirectSearch(raw);
+  };
+
+  const triggerAiSearch = () => {
+    const raw = query.trim();
+    if (raw) {
+      startSearch(raw);
+      return;
+    }
+    const sample = currentFullPlaceholderRef.current || activePlaceholders[0];
+    if (!sample) return;
+    setQuery(sample);
+    startSearch(sample);
+  };
+
   const handleSearchSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const raw = query.trim();
     if (!raw) {
-      const sample = currentFullPlaceholderRef.current || activePlaceholders[0];
-      if (!sample) return;
-      setQuery(sample);
-      startSearch(sample);
+      triggerAiSearch();
       return;
     }
-    if (resolvedSearchMode === 'direct') {
+    if (classifySearchIntent(raw, CATALOG_TITLE_SET) === 'direct') {
       startDirectSearch(raw);
     } else {
       startSearch(raw);
     }
   };
+
+  const renderSearchBar = (options: {
+    formClassName: string;
+    innerClassName: string;
+    inputClassName: string;
+    buttonClassName: string;
+    inputRef?: React.RefObject<HTMLInputElement | null>;
+  }) => (
+    <form className={options.formClassName} onSubmit={handleSearchSubmit}>
+      <div className={options.innerClassName}>
+        <input
+          ref={options.inputRef}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={placeholder}
+          enterKeyHint="search"
+          aria-label="搜片名或让 AI 策展"
+          className={options.inputClassName}
+        />
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            type="button"
+            onClick={(e) => triggerDirectSearch(e.currentTarget.form?.querySelector('input'))}
+            className={`shrink-0 whitespace-nowrap border border-white/15 bg-white/[0.08] font-medium text-[#f3efe6] transition hover:bg-white/15 active:scale-95 ${options.buttonClassName}`}
+          >
+            正常搜片
+          </button>
+          <button
+            type="button"
+            onClick={triggerAiSearch}
+            className={`shrink-0 whitespace-nowrap font-medium text-[#08090b] transition hover:brightness-110 active:scale-95 ${options.buttonClassName}`}
+            style={{ background: 'var(--a)' }}
+          >
+            AI 搜片
+          </button>
+        </div>
+      </div>
+    </form>
+  );
 
   const openQuick = (movie: CatalogItem) => {
     setQuick(movie);
@@ -698,38 +746,12 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
             ))}
           </nav>
 
-          <form
-            className="aur ml-auto w-full max-w-md"
-            onSubmit={handleSearchSubmit}
-          >
-            <div className="flex items-center gap-2 rounded-[18.5px] bg-[#0d0f14] px-3 py-1.5">
-              <button
-                type="button"
-                onClick={toggleSearchIntent}
-                title={
-                  searchIntentLock === 'auto'
-                    ? '智能模式（片名直搜 / 长句 AI 策展），点击切换锁定'
-                    : searchIntentLock === 'direct'
-                    ? '已锁定直搜片源，点击切换'
-                    : '已锁定 AI 影展，点击切换'
-                }
-                className="shrink-0 rounded-lg border border-white/10 bg-white/[0.06] px-2 py-0.5 font-mono text-[10px] transition hover:bg-white/15"
-                style={{ color: resolvedSearchMode === 'direct' ? '#f3efe6' : 'var(--a)' }}
-              >
-                {resolvedSearchMode === 'direct' ? '搜片' : '✦ AI'}
-              </button>
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={placeholder}
-                aria-label="搜片名或让 AI 策展"
-                className="flex-1 bg-transparent text-xs text-[#f3efe6] placeholder:text-white/40 focus:outline-none"
-              />
-              <button type="submit" className="rounded-xl px-3 py-1 text-xs font-medium text-[#08090b]" style={{ background: 'var(--a)' }}>
-                {resolvedSearchMode === 'direct' ? '搜片' : '找片'}
-              </button>
-            </div>
-          </form>
+          {renderSearchBar({
+            formClassName: 'aur ml-auto w-full max-w-lg',
+            innerClassName: 'flex items-center gap-2 rounded-[18.5px] bg-[#0d0f14] py-1.5 pl-3.5 pr-2',
+            inputClassName: 'min-w-0 flex-1 bg-transparent text-xs text-[#f3efe6] placeholder:text-white/40 focus:outline-none',
+            buttonClassName: 'rounded-xl px-2.5 py-1 text-xs',
+          })}
 
           <div className="flex shrink-0 items-center gap-2">
             {verified && user ? (
@@ -876,32 +898,12 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
           )}
 
           {/* 移动端悬浮极光搜索框（桌面端已在顶栏常驻） */}
-          <form
-            className="aur absolute bottom-3 left-4 right-4 z-30 shadow-2xl lg:hidden"
-            onSubmit={handleSearchSubmit}
-          >
-            <div className="flex items-center gap-2 rounded-[18.5px] bg-[#0d0f14] px-3 py-2">
-              <button
-                type="button"
-                onClick={toggleSearchIntent}
-                aria-label="切换直搜片源或 AI 影展"
-                className="shrink-0 rounded-lg border border-white/10 bg-white/[0.06] px-2 py-1 font-mono text-[11px] transition active:scale-95"
-                style={{ color: resolvedSearchMode === 'direct' ? '#f3efe6' : 'var(--a)' }}
-              >
-                {resolvedSearchMode === 'direct' ? '搜片' : '✦ AI'}
-              </button>
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={placeholder}
-                aria-label="搜片名或让 AI 策展"
-                className="min-w-0 flex-1 bg-transparent text-sm text-[#f3efe6] placeholder:text-white/40 focus:outline-none"
-              />
-              <button type="submit" className="shrink-0 rounded-xl px-3 py-1 text-xs font-medium text-[#08090b]" style={{ background: 'var(--a)' }}>
-                {resolvedSearchMode === 'direct' ? '搜片' : '找片'}
-              </button>
-            </div>
-          </form>
+          {renderSearchBar({
+            formClassName: 'aur absolute bottom-3 left-4 right-4 z-30 shadow-2xl lg:hidden',
+            innerClassName: 'flex items-center gap-1.5 rounded-[18.5px] bg-[#0d0f14] py-2 pl-3.5 pr-2',
+            inputClassName: 'min-w-0 flex-1 bg-transparent text-sm text-[#f3efe6] placeholder:text-white/40 focus:outline-none',
+            buttonClassName: 'rounded-xl px-2.5 py-1 text-[11px]',
+          })}
         </section>
       )}
 
@@ -1224,29 +1226,13 @@ export function CinemaHome({ initialTab = 'home' }: { initialTab?: 'home' | 'lib
             <div className="relative z-10 px-4 pt-4 lg:px-8 lg:pt-6">
               <div className="mb-5 flex items-center gap-2">
                 <button type="button" className="glass shrink-0 rounded-full px-3 py-1.5 text-xs text-white/80 hover:bg-white/15" onClick={closeSearch}>‹ 返回</button>
-                <form className="aur min-w-0 flex-1" onSubmit={handleSearchSubmit}>
-                  <div className="flex items-center gap-2 rounded-[18.5px] bg-[#0d0f14] px-3 py-2">
-                    <button
-                      type="button"
-                      onClick={toggleSearchIntent}
-                      title="点击切换「搜片 / AI 影展」"
-                      className="shrink-0 rounded-lg border border-white/10 bg-white/[0.06] px-2 py-0.5 font-mono text-[10px] transition hover:bg-white/15"
-                      style={{ color: resolvedSearchMode === 'direct' ? '#f3efe6' : 'var(--a)' }}
-                    >
-                      {resolvedSearchMode === 'direct' ? '搜片' : '✦ AI'}
-                    </button>
-                    <input
-                      ref={searchInputRef}
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder={placeholder}
-                      className="min-w-0 flex-1 bg-transparent text-xs text-white placeholder:text-white/40 focus:outline-none lg:text-sm"
-                    />
-                    <button type="submit" className="shrink-0 rounded-lg px-3 py-1 text-xs font-medium text-[#08090b]" style={{ background: 'var(--a)' }}>
-                      {resolvedSearchMode === 'direct' ? '搜片' : '布展'}
-                    </button>
-                  </div>
-                </form>
+                {renderSearchBar({
+                  formClassName: 'aur min-w-0 flex-1',
+                  innerClassName: 'flex items-center gap-1.5 rounded-[18.5px] bg-[#0d0f14] py-2 pl-3 pr-2 lg:pl-3.5',
+                  inputClassName: 'min-w-0 flex-1 bg-transparent text-xs text-white placeholder:text-white/40 focus:outline-none lg:text-sm',
+                  buttonClassName: 'rounded-lg px-2.5 py-1 text-[11px] lg:px-3 lg:text-xs',
+                  inputRef: searchInputRef,
+                })}
               </div>
 
               {searchViewMode === 'direct' ? (
