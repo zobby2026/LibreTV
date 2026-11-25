@@ -37,7 +37,7 @@ export async function POST(req: Request) {
   } catch (err) {
     console.error('[zobby] 注册失败', err);
     return NextResponse.json(
-      { success: false, error: '服务端数据目录不可写，请检查 data 目录权限' },
+      { success: false, error: '注册保存失败，请检查服务端存储服务后重试' },
       { status: 500 }
     );
   }

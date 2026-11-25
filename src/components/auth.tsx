@@ -133,35 +133,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [toast, queryClient]);
 
   const handleLoginSuccess = useCallback(
-    async (nextUser: PublicUser) => {
+    (nextUser: PublicUser) => {
       setUser(nextUser);
       setSetupRequired(false);
       setModalOpen(false);
       // 登录前以 401 失败的查询（如豆瓣推荐）需要重新拉取
       queryClient.invalidateQueries();
       toast(`欢迎，${nextUser.username}`, 'success');
-      // 个人数据先落地（换设备登录时这里会把服务端的收藏/历史/偏好恢复回来），
-      // 再跑预置源——预置源的勾选合并要建立在恢复好的个人状态之上，顺序不能反。
-      try {
-        await hydrateUserData(nextUser.id, nextUser.role);
-      } catch {
-        // 个人数据拉取失败不阻塞进入站点
-      }
-      // 预置订阅（DEFAULT_SUBSCRIPTIONS）的首屏同步发生在登录之前，会 401 静默失败，
-      // 这里用缓存中的 /api/status 补跑一次（缓存缺失时回落为一次请求）
-      try {
-        const cached = queryClient.getQueryData<AuthStatusResponse>(STATUS_QUERY_KEY);
-        const status =
-          cached ??
-          (await queryClient.fetchQuery<AuthStatusResponse>({
-            queryKey: STATUS_QUERY_KEY,
-            queryFn: () => api.status(),
-            staleTime: 0,
-          }));
-        if (status) await applyEnvPresets(status, { verified: true });
-      } catch {
-        // 补拉预置数据失败不影响登录后的正常使用
-      }
+      // 个人数据与订阅同步改走后台非阻塞任务：
+      // 避免手机端 IndexedDB 事务挂起或慢网同步把注册/登录弹窗死锁在「处理中...」
+      void (async () => {
+        try {
+          await hydrateUserData(nextUser.id, nextUser.role);
+        } catch {
+          // 个人数据拉取失败不阻塞进入站点
+        }
+        try {
+          const cached = queryClient.getQueryData<AuthStatusResponse>(STATUS_QUERY_KEY);
+          const status =
+            cached ??
+            (await queryClient.fetchQuery<AuthStatusResponse>({
+              queryKey: STATUS_QUERY_KEY,
+              queryFn: () => api.status(),
+              staleTime: 0,
+            }));
+          if (status) await applyEnvPresets(status, { verified: true });
+        } catch {
+          // 补拉预置数据失败不影响登录后的正常使用
+        }
+      })();
     },
     [toast, queryClient]
   );

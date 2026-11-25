@@ -50,7 +50,7 @@ export async function POST(req: Request) {
   } catch (err) {
     console.error('[zobby] 读取用户存储失败', err);
     return NextResponse.json(
-      { success: false, error: '服务端数据目录不可写，请检查 data 目录权限' },
+      { success: false, error: '读取用户存储失败，请检查存储服务状态' },
       { status: 500 }
     );
   }
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         success: false,
-        error: '服务端还没有任何账号。请设置 PASSWORD 环境变量后重启，系统会自动创建 admin 账号。',
+        error: '服务端还没有任何账号，请先完成站点初始化创建管理员。',
         setupRequired: true,
       },
       { status: 503 }
@@ -67,16 +67,24 @@ export async function POST(req: Request) {
   }
 
   // 只有一个账号时允许不填用户名：老用户升级到多用户版后，仍然只需输入原来的那个密码。
-  // 这里取的是那个账号真实的用户名，不是硬编码的 admin。
   if (!username) {
     if (userCount === 1) {
-      username = (await getSoleUsername()) ?? 'admin';
+      username = (await getSoleUsername().catch(() => null)) ?? 'admin';
     } else {
       return NextResponse.json({ success: false, error: '请输入用户名' }, { status: 400 });
     }
   }
 
-  const user = await authenticate(username, password);
+  let user;
+  try {
+    user = await authenticate(username, password);
+  } catch (err) {
+    console.error('[zobby] 登录校验异常', err);
+    return NextResponse.json(
+      { success: false, error: '登录校验失败，请重试或联系管理员重置密码' },
+      { status: 500 }
+    );
+  }
   if (!user) {
     return NextResponse.json({ success: false, error: '用户名或密码错误' }, { status: 401 });
   }

@@ -88,6 +88,19 @@ function pickShared(settings: Record<string, unknown>): Record<string, unknown> 
   return out;
 }
 
+/** 防止隐私模式、iOS WebView 或国产手机浏览器中 IndexedDB 事务永久挂起 */
+function withTimeout<T>(promise: Promise<T>, ms = 2500): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  return Promise.race([
+    promise.finally(() => {
+      if (timer) clearTimeout(timer);
+    }),
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('IndexedDB timeout')), ms);
+    }),
+  ]);
+}
+
 /** 读当前浏览器的完整个人数据 */
 export async function collectSnapshot(): Promise<UserSnapshot> {
   const settings = stripShared(readStoredSettings());
@@ -96,11 +109,16 @@ export async function collectSnapshot(): Promise<UserSnapshot> {
   let progress: ProgressEntry[] = [];
   let searchHistory: SearchHistoryEntry[] = [];
   try {
-    history = await db.history.orderBy('timestamp').reverse().limit(100).toArray();
-    progress = await db.progress.orderBy('updatedAt').reverse().limit(MAX_PROGRESS_ROWS).toArray();
-    searchHistory = await db.searchHistory.orderBy('timestamp').reverse().limit(10).toArray();
+    const rows = await withTimeout(
+      Promise.all([
+        db.history.orderBy('timestamp').reverse().limit(100).toArray(),
+        db.progress.orderBy('updatedAt').reverse().limit(MAX_PROGRESS_ROWS).toArray(),
+        db.searchHistory.orderBy('timestamp').reverse().limit(10).toArray(),
+      ])
+    );
+    [history, progress, searchHistory] = rows;
   } catch {
-    // IndexedDB 不可用（隐私模式）：只同步设置
+    // IndexedDB 不可用或挂起：只同步设置
   }
 
   return {
@@ -142,14 +160,16 @@ export async function applySnapshot(snapshot: Partial<UserSnapshot> | null): Pro
   }
 
   try {
-    await db.transaction('rw', [db.history, db.progress, db.searchHistory], async () => {
-      await db.history.clear();
-      await db.progress.clear();
-      await db.searchHistory.clear();
-      if (snapshot.history?.length) await db.history.bulkPut(snapshot.history);
-      if (snapshot.progress?.length) await db.progress.bulkPut(snapshot.progress);
-      if (snapshot.searchHistory?.length) await db.searchHistory.bulkPut(snapshot.searchHistory);
-    });
+    await withTimeout(
+      db.transaction('rw', [db.history, db.progress, db.searchHistory], async () => {
+        await db.history.clear();
+        await db.progress.clear();
+        await db.searchHistory.clear();
+        if (snapshot.history?.length) await db.history.bulkPut(snapshot.history);
+        if (snapshot.progress?.length) await db.progress.bulkPut(snapshot.progress);
+        if (snapshot.searchHistory?.length) await db.searchHistory.bulkPut(snapshot.searchHistory);
+      })
+    );
   } catch (err) {
     console.warn('[zobby] 应用观看历史失败', err);
   }
@@ -158,11 +178,13 @@ export async function applySnapshot(snapshot: Partial<UserSnapshot> | null): Pro
 /** 清空本地个人数据（换账号且服务端没有该账号数据时用） */
 async function clearLocalPersonalData(): Promise<void> {
   try {
-    await db.transaction('rw', [db.history, db.progress, db.searchHistory], async () => {
-      await db.history.clear();
-      await db.progress.clear();
-      await db.searchHistory.clear();
-    });
+    await withTimeout(
+      db.transaction('rw', [db.history, db.progress, db.searchHistory], async () => {
+        await db.history.clear();
+        await db.progress.clear();
+        await db.searchHistory.clear();
+      })
+    );
   } catch {
     // 忽略
   }

@@ -136,13 +136,22 @@ export function sessionUserId(cookieHeader: string | null): string | null {
  * 不能依赖 req.url——Next.js Route Handler 中它是内部转发地址，并非用户侧的原始协议。
  * 登录、注册两处都要用，抽出来避免两份实现漂移。
  */
+function isHttpsRequest(req: Request): boolean {
+  const proto = req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim().toLowerCase();
+  if (proto === 'https') return true;
+  if (proto === 'http') return false;
+  const cfVisitor = req.headers.get('cf-visitor');
+  if (cfVisitor && cfVisitor.includes('"https"')) return true;
+  return req.url.startsWith('https://');
+}
+
 export function applySessionCookie(res: NextResponse, req: Request, userId: string): NextResponse {
   const { token, expiresAt } = signSessionFor(userId);
   const secure = process.env.COOKIE_SECURE === 'true'
     ? true
     : process.env.COOKIE_SECURE === 'false'
       ? false
-      : (req.headers.get('x-forwarded-proto')?.split(',')[0]?.trim() ?? 'http') === 'https';
+      : isHttpsRequest(req);
   res.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',

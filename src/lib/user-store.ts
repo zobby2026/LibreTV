@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { hashPassword, verifyPassword } from './passwords';
+import { hashPassword, needsPasswordRehash, verifyPassword } from './passwords';
 import { deleteStored, ensureDataStore, readStoredJson, writeStoredJson } from './document-store';
 import type { InviteRecord, PublicUser, SharedConfig, UserDataPayload, UserRole } from './user-types';
 
@@ -92,17 +92,17 @@ function toPublic(u: UserRecord): PublicUser {
   };
 }
 
-function makeUser(
+async function makeUser(
   username: string,
   password: string,
   role: UserRole,
   createdVia?: string
-): UserRecord {
+): Promise<UserRecord> {
   return {
     id: crypto.randomUUID(),
     username: username.trim(),
     usernameLower: username.trim().toLowerCase(),
-    passwordHash: hashPassword(password),
+    passwordHash: await hashPassword(password),
     role,
     createdAt: Date.now(),
     createdVia,
@@ -199,8 +199,12 @@ export async function authenticate(
     const users = await readUsers();
     const idx = users.findIndex((u) => u.usernameLower === name);
     if (idx === -1) return null;
-    if (!verifyPassword(password, users[idx].passwordHash)) return null;
+    if (!(await verifyPassword(password, users[idx].passwordHash))) return null;
     users[idx].lastLoginAt = Date.now();
+    // 历史 scrypt 账号登录后自动无感升级为 WebCrypto PBKDF2
+    if (needsPasswordRehash(users[idx].passwordHash)) {
+      users[idx].passwordHash = await hashPassword(password);
+    }
     await writeUsers(users);
     return toPublic(users[idx]);
   });
@@ -232,7 +236,7 @@ export async function createFirstAdmin(input: {
   return serialize(async () => {
     const users = await readUsers();
     if (users.length > 0) return { ok: false, error: '站点已完成初始化，请直接登录' };
-    const admin = makeUser(input.username, input.password, 'admin');
+    const admin = await makeUser(input.username, input.password, 'admin');
     users.push(admin);
     await writeUsers(users);
     return { ok: true, user: toPublic(admin) };
@@ -264,7 +268,7 @@ export async function registerWithInvite(input: {
       return { ok: false, error: '该用户名已被占用' };
     }
 
-    const user = makeUser(input.username, input.password, 'user', code);
+    const user = await makeUser(input.username, input.password, 'user', code);
     // 先占住邀请码，再落用户；任一步失败都回滚，避免「码被吃掉但没注册成功」
     invite.usedAt = Date.now();
     invite.usedBy = user.id;
@@ -395,7 +399,7 @@ export async function changePassword(userId: string, newPassword: string): Promi
     const users = await readUsers();
     const user = users.find((u) => u.id === userId);
     if (!user) return '用户不存在';
-    user.passwordHash = hashPassword(newPassword);
+    user.passwordHash = await hashPassword(newPassword);
     await writeUsers(users);
     return null;
   });

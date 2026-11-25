@@ -87,13 +87,41 @@ async function consumeNdjson<T>(res: Response, onEvent: (event: T) => void): Pro
   consume(buffer);
 }
 
-async function request<T>(url: string, init?: RequestInit): Promise<T> {
+async function request<T>(url: string, init?: RequestInit & { timeoutMs?: number }): Promise<T> {
+  const { timeoutMs, signal: externalSignal, ...fetchInit } = init ?? {};
+  const controller = timeoutMs ? new AbortController() : null;
+  let timedOut = false;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const onExternalAbort = () => controller?.abort();
+
+  if (controller && timeoutMs) {
+    if (externalSignal) {
+      if (externalSignal.aborted) controller.abort();
+      else externalSignal.addEventListener('abort', onExternalAbort, { once: true });
+    }
+    timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, timeoutMs);
+  }
+
   let res: Response;
   try {
-    res = await fetch(url, init);
+    res = await fetch(url, {
+      ...fetchInit,
+      signal: controller ? controller.signal : externalSignal,
+    });
   } catch (err) {
+    if (timedOut) {
+      throw new ApiError('请求超时，请检查网络连接后重试', 408);
+    }
     if (err instanceof DOMException && err.name === 'AbortError') throw err;
     throw new ApiError('网络请求失败，请检查网络连接', 0);
+  } finally {
+    if (timer) clearTimeout(timer);
+    if (controller && externalSignal) {
+      externalSignal.removeEventListener('abort', onExternalAbort);
+    }
   }
   throwForAuthStatus(res);
   if (!res.ok) {
@@ -108,10 +136,10 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  status: () => request<AuthStatusResponse>('/api/status'),
+  status: () => request<AuthStatusResponse>('/api/status', { timeoutMs: 12_000 }),
 
   /** 当前会话对应的用户（永远 200：未登录就是 authenticated=false） */
-  me: () => request<AuthUserResponse>('/api/auth'),
+  me: () => request<AuthUserResponse>('/api/auth', { timeoutMs: 12_000 }),
 
   /** 站点初始化：创建第一个管理员（仅在零账号时可用），成功后直接建立会话 */
   setup: (username: string, password: string, setupKey?: string) =>
@@ -119,6 +147,7 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password, setupKey }),
+      timeoutMs: 15_000,
     }),
 
   /** 登录：用户名 + 密码。只有一个账号时 username 可省略 */
@@ -127,6 +156,7 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password }),
+      timeoutMs: 15_000,
     }),
 
   /** 邀请码注册（一次性码），成功后直接建立会话 */
@@ -135,6 +165,7 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code, username, password }),
+      timeoutMs: 15_000,
     }),
 
   logout: () => request<{ success: boolean }>('/api/auth', { method: 'DELETE' }),
