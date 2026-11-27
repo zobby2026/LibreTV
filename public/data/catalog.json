@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-11-26T02:36:16.025Z",
+  "updated_at": "2026-11-27T02:36:09.482Z",
   "source": "douban",
   "hero": [
     {
@@ -15,6 +15,48 @@
       "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fm_ratio_poster%2Fpublic%2Fp2937429510.jpg",
       "backdrop": "/api/img/w780/aqFZcr2dxSZ2UwWSo1WC6C0rwDf.jpg",
       "w": "2026 / 美国 / 动作 科幻 冒险 / 弗朗西斯·劳伦斯 / 约瑟夫·扎达 杰西·普莱蒙"
+    },
+    {
+      "id": "db_37154591",
+      "t": "泥面人",
+      "y": 2026,
+      "d": "2026",
+      "r": 7.9,
+      "a": "#5ea8ff",
+      "b": "#0d1b2a",
+      "ty": "电影",
+      "kind": "电影",
+      "poster": "/api/img?url=https%3A%2F%2Fimg2.doubanio.com%2Fview%2Fphoto%2Fm_ratio_poster%2Fpublic%2Fp2937582871.jpg",
+      "backdrop": "/api/img/w780/f1TVhqJJdxMvUsUDuKHS0ekgYkk.jpg",
+      "w": "2026 / 美国 / 科幻 惊悚 犯罪 / 詹姆斯·瓦特金斯 / 汤姆·里斯·哈里斯 娜奥米·阿基"
+    },
+    {
+      "id": "db_33412900",
+      "t": "二十四味",
+      "y": 2024,
+      "d": "2024",
+      "r": 0,
+      "a": "#4ecdc4",
+      "b": "#0b2220",
+      "ty": "电影",
+      "kind": "电影",
+      "poster": "/api/img?url=https%3A%2F%2Fimg9.doubanio.com%2Fview%2Fphoto%2Fm_ratio_poster%2Fpublic%2Fp2937401916.jpg",
+      "backdrop": "/api/img/w780/2g7xPpdfUPnTERDJ5tVvVcAcDsU.jpg",
+      "w": "2024 / 中国大陆 / 剧情 家庭 / 黄绮玲 / 张艾嘉 钟镇涛"
+    },
+    {
+      "id": "db_36098322",
+      "t": "循环街区",
+      "y": 2026,
+      "d": "2026",
+      "r": 0,
+      "a": "#6ee7ff",
+      "b": "#0b2026",
+      "ty": "电影",
+      "kind": "电影",
+      "poster": "/api/img?url=https%3A%2F%2Fimg9.doubanio.com%2Fview%2Fphoto%2Fm_ratio_poster%2Fpublic%2Fp2937593655.jpg",
+      "backdrop": "/api/img/w780/qgvnBhma4vkmxsJrA3aPdvKzbaf.jpg",
+      "w": "2026 / 中国大陆 / 爱情 科幻 悬疑 / 郑雷 / 邓家佳 李沐风"
     },
     {
       "id": "db_37822528",
@@ -55,8 +97,22 @@
       "ty": "电影",
       "kind": "电影",
       "poster": "/api/img?url=https%3A%2F%2Fimg9.doubanio.com%2Fview%2Fphoto%2Fm_ratio_poster%2Fpublic%2Fp2937437804.jpg",
-      "backdrop": "/api/img/w780/8SxdltrjFneAeOASXvnBEXV20tL.jpg",
+      "backdrop": "/api/img/w780/yYqi3C4qmXTbHEQAUXf7XJOKmYp.jpg",
       "w": "2026 / 中国大陆 / 悬疑 惊悚 / 侯逍遥 / 冯绍峰 陈雨锶"
+    },
+    {
+      "id": "db_37503053",
+      "t": "魔法秘境",
+      "y": 2026,
+      "d": "2026",
+      "r": 0,
+      "a": "#f4a261",
+      "b": "#2a1a0c",
+      "ty": "电影",
+      "kind": "电影",
+      "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fm_ratio_poster%2Fpublic%2Fp2937074540.jpg",
+      "backdrop": "/api/img/w780/wdjW11Tp4w9EfDBxbjyBJvDVHDA.jpg",
+      "w": "2026 / 美国 / 喜剧 动画 奇幻 冒险 / 弗恩·维拉桑托恩 杰森·汉德 乔西·特立尼达 / 海莉·斯坦菲尔德 拉什达·琼斯"
     },
     {
       "id": "db_35211934",
@@ -85,62 +141,6 @@
       "poster": "/api/img?url=https%3A%2F%2Fimg9.doubanio.com%2Fview%2Fphoto%2Fm_ratio_poster%2Fpublic%2Fp2935834896.jpg",
       "backdrop": "/api/img/w780/alyqXqdgyjMSn8EbKTLJnB44t5z.jpg",
       "w": "2025 / 埃及 / 剧情 / 萨拉·戈赫尔 / 朵哈·拉马丹 哈迪贾·艾哈迈德"
-    },
-    {
-      "id": "db_39031675",
-      "t": "金哲",
-      "y": 2026,
-      "d": "2026",
-      "r": 0,
-      "a": "#e86f51",
-      "b": "#2b130e",
-      "ty": "电影",
-      "kind": "电影",
-      "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fm_ratio_poster%2Fpublic%2Fp2937372163.jpg",
-      "backdrop": "/api/img/w780/gAsZJaQ16P8NnBBUIUPAow63Btg.jpg",
-      "w": "2026 / 中国大陆 / 剧情 喜剧 家庭 / 金成峰 / 王振鑫 俞智元"
-    },
-    {
-      "id": "db_25798131",
-      "t": "疾速追杀",
-      "y": 2014,
-      "d": "2014",
-      "r": 7.8,
-      "a": "#4ecdc4",
-      "b": "#0b2220",
-      "ty": "电影",
-      "kind": "电影",
-      "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fm_ratio_poster%2Fpublic%2Fp2936502228.jpg",
-      "backdrop": "/api/img/w780/ff2ti5DkA9UYLzyqhQfI2kZqEuh.jpg",
-      "w": "2014 / 美国 / 动作 惊悚 犯罪 / 查德·斯塔赫斯基 / 基努·里维斯 迈克尔·恩奎斯特"
-    },
-    {
-      "id": "db_37409137",
-      "t": "我没错！",
-      "y": 2026,
-      "d": "2026",
-      "r": 5.4,
-      "a": "#e86f51",
-      "b": "#2b130e",
-      "ty": "电影",
-      "kind": "电影",
-      "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fm_ratio_poster%2Fpublic%2Fp2937345969.jpg",
-      "backdrop": "/api/img/w780/s8JUBEKWjIQIS0C3XqviSghViYP.jpg",
-      "w": "2026 / 中国大陆 / 剧情 喜剧 犯罪 / 宗海英 / 佟丽娅 王皓"
-    },
-    {
-      "id": "db_37295792",
-      "t": "心迷宫之三重罪",
-      "y": 2026,
-      "d": "2026",
-      "r": 5.9,
-      "a": "#e86f51",
-      "b": "#2b130e",
-      "ty": "电影",
-      "kind": "电影",
-      "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fm_ratio_poster%2Fpublic%2Fp2937022178.jpg",
-      "backdrop": "/api/img/w780/fsimBUWxaYj8tK8d1fhp07ofXGh.jpg",
-      "w": "2026 / 中国大陆 / 悬疑 犯罪 / 何念 / 姜武 杜光祎"
     }
   ],
   "boards": [
@@ -162,6 +162,48 @@
           "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fm_ratio_poster%2Fpublic%2Fp2937429510.jpg",
           "backdrop": "",
           "w": "2026 / 美国 / 动作 科幻 冒险 / 弗朗西斯·劳伦斯 / 约瑟夫·扎达 杰西·普莱蒙"
+        },
+        {
+          "id": "db_37154591",
+          "t": "泥面人",
+          "y": 2026,
+          "d": "2026",
+          "r": 7.9,
+          "a": "#5ea8ff",
+          "b": "#0d1b2a",
+          "ty": "电影",
+          "kind": "电影",
+          "poster": "/api/img?url=https%3A%2F%2Fimg2.doubanio.com%2Fview%2Fphoto%2Fm_ratio_poster%2Fpublic%2Fp2937582871.jpg",
+          "backdrop": "",
+          "w": "2026 / 美国 / 科幻 惊悚 犯罪 / 詹姆斯·瓦特金斯 / 汤姆·里斯·哈里斯 娜奥米·阿基"
+        },
+        {
+          "id": "db_33412900",
+          "t": "二十四味",
+          "y": 2024,
+          "d": "2024",
+          "r": 0,
+          "a": "#4ecdc4",
+          "b": "#0b2220",
+          "ty": "电影",
+          "kind": "电影",
+          "poster": "/api/img?url=https%3A%2F%2Fimg9.doubanio.com%2Fview%2Fphoto%2Fm_ratio_poster%2Fpublic%2Fp2937401916.jpg",
+          "backdrop": "",
+          "w": "2024 / 中国大陆 / 剧情 家庭 / 黄绮玲 / 张艾嘉 钟镇涛"
+        },
+        {
+          "id": "db_36098322",
+          "t": "循环街区",
+          "y": 2026,
+          "d": "2026",
+          "r": 0,
+          "a": "#6ee7ff",
+          "b": "#0b2026",
+          "ty": "电影",
+          "kind": "电影",
+          "poster": "/api/img?url=https%3A%2F%2Fimg9.doubanio.com%2Fview%2Fphoto%2Fm_ratio_poster%2Fpublic%2Fp2937593655.jpg",
+          "backdrop": "",
+          "w": "2026 / 中国大陆 / 爱情 科幻 悬疑 / 郑雷 / 邓家佳 李沐风"
         },
         {
           "id": "db_37822528",
@@ -206,6 +248,20 @@
           "w": "2026 / 中国大陆 / 悬疑 惊悚 / 侯逍遥 / 冯绍峰 陈雨锶"
         },
         {
+          "id": "db_37503053",
+          "t": "魔法秘境",
+          "y": 2026,
+          "d": "2026",
+          "r": 0,
+          "a": "#f4a261",
+          "b": "#2a1a0c",
+          "ty": "电影",
+          "kind": "电影",
+          "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fm_ratio_poster%2Fpublic%2Fp2937074540.jpg",
+          "backdrop": "",
+          "w": "2026 / 美国 / 喜剧 动画 奇幻 冒险 / 弗恩·维拉桑托恩 杰森·汉德 乔西·特立尼达 / 海莉·斯坦菲尔德 拉什达·琼斯"
+        },
+        {
           "id": "db_35211934",
           "t": "深度安静",
           "y": 2025,
@@ -232,62 +288,6 @@
           "poster": "/api/img?url=https%3A%2F%2Fimg9.doubanio.com%2Fview%2Fphoto%2Fm_ratio_poster%2Fpublic%2Fp2935834896.jpg",
           "backdrop": "",
           "w": "2025 / 埃及 / 剧情 / 萨拉·戈赫尔 / 朵哈·拉马丹 哈迪贾·艾哈迈德"
-        },
-        {
-          "id": "db_39031675",
-          "t": "金哲",
-          "y": 2026,
-          "d": "2026",
-          "r": 0,
-          "a": "#e86f51",
-          "b": "#2b130e",
-          "ty": "电影",
-          "kind": "电影",
-          "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fm_ratio_poster%2Fpublic%2Fp2937372163.jpg",
-          "backdrop": "",
-          "w": "2026 / 中国大陆 / 剧情 喜剧 家庭 / 金成峰 / 王振鑫 俞智元"
-        },
-        {
-          "id": "db_25798131",
-          "t": "疾速追杀",
-          "y": 2014,
-          "d": "2014",
-          "r": 7.8,
-          "a": "#4ecdc4",
-          "b": "#0b2220",
-          "ty": "电影",
-          "kind": "电影",
-          "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fm_ratio_poster%2Fpublic%2Fp2936502228.jpg",
-          "backdrop": "",
-          "w": "2014 / 美国 / 动作 惊悚 犯罪 / 查德·斯塔赫斯基 / 基努·里维斯 迈克尔·恩奎斯特"
-        },
-        {
-          "id": "db_37409137",
-          "t": "我没错！",
-          "y": 2026,
-          "d": "2026",
-          "r": 5.4,
-          "a": "#e86f51",
-          "b": "#2b130e",
-          "ty": "电影",
-          "kind": "电影",
-          "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fm_ratio_poster%2Fpublic%2Fp2937345969.jpg",
-          "backdrop": "",
-          "w": "2026 / 中国大陆 / 剧情 喜剧 犯罪 / 宗海英 / 佟丽娅 王皓"
-        },
-        {
-          "id": "db_37295792",
-          "t": "心迷宫之三重罪",
-          "y": 2026,
-          "d": "2026",
-          "r": 5.9,
-          "a": "#e86f51",
-          "b": "#2b130e",
-          "ty": "电影",
-          "kind": "电影",
-          "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fm_ratio_poster%2Fpublic%2Fp2937022178.jpg",
-          "backdrop": "",
-          "w": "2026 / 中国大陆 / 悬疑 犯罪 / 何念 / 姜武 杜光祎"
         }
       ]
     },
@@ -315,7 +315,7 @@
           "t": "我的有罪之人",
           "y": 2026,
           "d": "2026",
-          "r": 8.7,
+          "r": 8.6,
           "a": "#ff8c42",
           "b": "#2b1608",
           "ty": "剧集",
@@ -343,7 +343,7 @@
           "t": "今天是太阳雨",
           "y": 2026,
           "d": "2026",
-          "r": 8,
+          "r": 7.9,
           "a": "#7ae582",
           "b": "#0d2412",
           "ty": "剧集",
@@ -351,20 +351,6 @@
           "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2935903589.jpg",
           "backdrop": "",
           "w": "2026 / 中国大陆 / 剧情 爱情 / 猫的树 / 杨超越 董思成"
-        },
-        {
-          "id": "db_37109676",
-          "t": "谷雨",
-          "y": 2026,
-          "d": "2026",
-          "r": 6.3,
-          "a": "#ff6b8b",
-          "b": "#2b0f18",
-          "ty": "剧集",
-          "kind": "剧集",
-          "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2936897680.jpg",
-          "backdrop": "",
-          "w": "2026 / 中国大陆 / 剧情 悬疑 犯罪 / 李路 / 井柏然 孙艺洲"
         },
         {
           "id": "db_36675942",
@@ -379,6 +365,20 @@
           "poster": "/api/img?url=https%3A%2F%2Fimg2.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2936709341.jpg",
           "backdrop": "",
           "w": "2026 / 中国大陆 / 剧情 / 张晓波 / 肖战 倪大红"
+        },
+        {
+          "id": "db_37109676",
+          "t": "谷雨",
+          "y": 2026,
+          "d": "2026",
+          "r": 6.3,
+          "a": "#ff6b8b",
+          "b": "#2b0f18",
+          "ty": "剧集",
+          "kind": "剧集",
+          "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2936897680.jpg",
+          "backdrop": "",
+          "w": "2026 / 中国大陆 / 剧情 悬疑 犯罪 / 李路 / 井柏然 孙艺洲"
         },
         {
           "id": "db_37191789",
@@ -409,20 +409,6 @@
           "w": "2026 / 中国大陆 / 剧情 喜剧 / 姚婷婷 / 王皓 高叶"
         },
         {
-          "id": "db_38356260",
-          "t": "宝珠",
-          "y": 2026,
-          "d": "2026",
-          "r": 0,
-          "a": "#6ee7ff",
-          "b": "#0b2026",
-          "ty": "剧集",
-          "kind": "剧集",
-          "poster": "/api/img?url=https%3A%2F%2Fimg9.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2937533554.jpg",
-          "backdrop": "",
-          "w": "2026 / 中国大陆 / 爱情 古装 / 郭锋 刘峥 / 代露娃 赖伟明"
-        },
-        {
           "id": "db_36155236",
           "t": "伟大的长征",
           "y": 2026,
@@ -435,6 +421,20 @@
           "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2936465959.jpg",
           "backdrop": "",
           "w": "2026 / 中国大陆 / 剧情 历史 战争 / 张永新 / 于和伟 曹磊"
+        },
+        {
+          "id": "db_30145677",
+          "t": "青春共体",
+          "y": 2026,
+          "d": "2026",
+          "r": 7.5,
+          "a": "#5ea8ff",
+          "b": "#0d1b2a",
+          "ty": "剧集",
+          "kind": "剧集",
+          "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2937427662.jpg",
+          "backdrop": "",
+          "w": "2026 / 美国 / 剧情 惊悚 / 奎恩·谢法德 / 克里斯蒂娜·博吉克 吉娜·梅萨罗斯"
         }
       ]
     },
@@ -463,7 +463,7 @@
           "t": "今天是太阳雨",
           "y": 2026,
           "d": "2026",
-          "r": 8,
+          "r": 7.9,
           "a": "#7ae582",
           "b": "#0d2412",
           "ty": "剧集",
@@ -489,21 +489,6 @@
           "w": "2026 / 中国大陆 / 剧情 犯罪 / 牛超 李亚东 / 罗晋 王锵"
         },
         {
-          "id": "db_37109676",
-          "t": "谷雨",
-          "y": 2026,
-          "d": "2026",
-          "r": 6.3,
-          "a": "#ff6b8b",
-          "b": "#2b0f18",
-          "ty": "剧集",
-          "kind": "剧集",
-          "rg": "大陆",
-          "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2936897680.jpg",
-          "backdrop": "",
-          "w": "2026 / 中国大陆 / 剧情 悬疑 犯罪 / 李路 / 井柏然 孙艺洲"
-        },
-        {
           "id": "db_36675942",
           "t": "小城良方",
           "y": 2026,
@@ -517,6 +502,21 @@
           "poster": "/api/img?url=https%3A%2F%2Fimg2.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2936709341.jpg",
           "backdrop": "",
           "w": "2026 / 中国大陆 / 剧情 / 张晓波 / 肖战 倪大红"
+        },
+        {
+          "id": "db_37109676",
+          "t": "谷雨",
+          "y": 2026,
+          "d": "2026",
+          "r": 6.3,
+          "a": "#ff6b8b",
+          "b": "#2b0f18",
+          "ty": "剧集",
+          "kind": "剧集",
+          "rg": "大陆",
+          "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2936897680.jpg",
+          "backdrop": "",
+          "w": "2026 / 中国大陆 / 剧情 悬疑 犯罪 / 李路 / 井柏然 孙艺洲"
         },
         {
           "id": "db_37191789",
@@ -549,21 +549,6 @@
           "w": "2026 / 中国大陆 / 剧情 喜剧 / 姚婷婷 / 王皓 高叶"
         },
         {
-          "id": "db_38356260",
-          "t": "宝珠",
-          "y": 2026,
-          "d": "2026",
-          "r": 0,
-          "a": "#6ee7ff",
-          "b": "#0b2026",
-          "ty": "剧集",
-          "kind": "剧集",
-          "rg": "大陆",
-          "poster": "/api/img?url=https%3A%2F%2Fimg9.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2937533554.jpg",
-          "backdrop": "",
-          "w": "2026 / 中国大陆 / 爱情 古装 / 郭锋 刘峥 / 代露娃 赖伟明"
-        },
-        {
           "id": "db_36155236",
           "t": "伟大的长征",
           "y": 2026,
@@ -577,6 +562,21 @@
           "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2936465959.jpg",
           "backdrop": "",
           "w": "2026 / 中国大陆 / 剧情 历史 战争 / 张永新 / 于和伟 曹磊"
+        },
+        {
+          "id": "db_38356260",
+          "t": "宝珠",
+          "y": 2026,
+          "d": "2026",
+          "r": 0,
+          "a": "#6ee7ff",
+          "b": "#0b2026",
+          "ty": "剧集",
+          "kind": "剧集",
+          "rg": "大陆",
+          "poster": "/api/img?url=https%3A%2F%2Fimg9.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2937533554.jpg",
+          "backdrop": "",
+          "w": "2026 / 中国大陆 / 爱情 古装 / 郭锋 刘峥 / 代露娃 赖伟明"
         },
         {
           "id": "db_36449295",
@@ -605,7 +605,7 @@
           "t": "我的有罪之人",
           "y": 2026,
           "d": "2026",
-          "r": 8.7,
+          "r": 8.6,
           "a": "#ff8c42",
           "b": "#2b1608",
           "ty": "剧集",
@@ -650,7 +650,7 @@
           "t": "好搭档2",
           "y": 2026,
           "d": "2026",
-          "r": 0,
+          "r": 7.8,
           "a": "#e86f51",
           "b": "#2b130e",
           "ty": "剧集",
@@ -674,6 +674,21 @@
           "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2935889112.jpg",
           "backdrop": "",
           "w": "2026 / 韩国 / 爱情 奇幻 古装 / 赵秀沅 / 申敏儿 朱智勋"
+        },
+        {
+          "id": "db_37172429",
+          "t": "罪蓝之路",
+          "y": 2026,
+          "d": "2026",
+          "r": 6.6,
+          "a": "#5ea8ff",
+          "b": "#0d1b2a",
+          "ty": "剧集",
+          "kind": "剧集",
+          "rg": "日韩",
+          "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2937233193.jpg",
+          "backdrop": "",
+          "w": "2026 / 韩国 日本 / 剧情 悬疑 犯罪 / 韩俊熙 / 孙锡求 永山瑛太"
         },
         {
           "id": "db_37210712",
@@ -734,21 +749,6 @@
           "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2935403473.jpg",
           "backdrop": "",
           "w": "2026 / 韩国 / 剧情 喜剧 / 尹英彬 / 李浚赫 徐现宇"
-        },
-        {
-          "id": "db_37317494",
-          "t": "心动制造所",
-          "y": 2026,
-          "d": "2026",
-          "r": 7.5,
-          "a": "#4ecdc4",
-          "b": "#0b2220",
-          "ty": "剧集",
-          "kind": "剧集",
-          "rg": "日韩",
-          "poster": "/api/img?url=https%3A%2F%2Fimg9.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2937320994.jpg",
-          "backdrop": "",
-          "w": "2026 / 韩国 / 喜剧 爱情 / 金逸知 / 金宰永 南志铉"
         }
       ]
     },
@@ -757,6 +757,20 @@
       "name": "动画榜",
       "sub": "高分新番热播",
       "items": [
+        {
+          "id": "db_37813694",
+          "t": "愚者之夜",
+          "y": 2026,
+          "d": "2026",
+          "r": 0,
+          "a": "#7ae582",
+          "b": "#0d2412",
+          "ty": "剧集",
+          "kind": "动画",
+          "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2937815047.jpg",
+          "backdrop": "",
+          "w": "2026 / 日本 / 剧情 科幻 动画 / 汤川敦之 / 内山昂辉 寿美菜子"
+        },
         {
           "id": "db_37421775",
           "t": "赛博朋克：边缘行者 第二季",
@@ -786,20 +800,6 @@
           "w": "2026 / 日本 / 动画 / 笔坂明规 / 悠木碧 大冢刚央"
         },
         {
-          "id": "db_37813694",
-          "t": "愚者之夜",
-          "y": 2026,
-          "d": "2026",
-          "r": 0,
-          "a": "#7ae582",
-          "b": "#0d2412",
-          "ty": "剧集",
-          "kind": "动画",
-          "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2933509123.jpg",
-          "backdrop": "",
-          "w": "2026 / 日本 / 剧情 科幻 动画 / 汤川敦之 / 内山昂辉 寿美菜子"
-        },
-        {
           "id": "db_37193332",
           "t": "学生会也有洞！",
           "y": 2026,
@@ -818,7 +818,7 @@
           "t": "FX战士久留美",
           "y": 2026,
           "d": "2026",
-          "r": 8.1,
+          "r": 8,
           "a": "#ff8c42",
           "b": "#2b1608",
           "ty": "剧集",
@@ -826,34 +826,6 @@
           "poster": "/api/img?url=https%3A%2F%2Fimg9.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2935924656.jpg",
           "backdrop": "",
           "w": "2026 / 日本 / 动画 / 小川优树 / 铃木爱奈 濑户麻沙美"
-        },
-        {
-          "id": "db_37352866",
-          "t": "黑色五叶草 第二季",
-          "y": 2026,
-          "d": "2026",
-          "r": 9.1,
-          "a": "#ffd27a",
-          "b": "#29200b",
-          "ty": "剧集",
-          "kind": "动画",
-          "poster": "/api/img?url=https%3A%2F%2Fimg9.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2936199034.jpg",
-          "backdrop": "",
-          "w": "2026 / 日本 / 动画 奇幻 冒险 / 种村绫隆 / 梶原岳人 岛崎信长"
-        },
-        {
-          "id": "db_37570011",
-          "t": "闹鬼酒店 第二季",
-          "y": 2026,
-          "d": "2026",
-          "r": 8.6,
-          "a": "#e86f51",
-          "b": "#2b130e",
-          "ty": "剧集",
-          "kind": "动画",
-          "poster": "/api/img?url=https%3A%2F%2Fimg9.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2935678255.jpg",
-          "backdrop": "",
-          "w": "2026 / 美国 / 喜剧 动画 恐怖 / 艾丽卡·海耶斯 / 威尔·福特 伊丽莎·库伯"
         },
         {
           "id": "db_38540867",
@@ -870,18 +842,32 @@
           "w": "2026 / 日本 / 喜剧 爱情 动画 / 万球 / 永濑安奈 和泉风花"
         },
         {
-          "id": "db_38239691",
-          "t": "被流放的开挂魔术师讴歌随心所欲第二人生",
+          "id": "db_37570011",
+          "t": "闹鬼酒店 第二季",
           "y": 2026,
           "d": "2026",
-          "r": 7.1,
-          "a": "#7ae582",
-          "b": "#0d2412",
+          "r": 8.6,
+          "a": "#e86f51",
+          "b": "#2b130e",
           "ty": "剧集",
           "kind": "动画",
-          "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2935646070.jpg",
+          "poster": "/api/img?url=https%3A%2F%2Fimg9.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2935678255.jpg",
           "backdrop": "",
-          "w": "2026 / 日本 / 动画 奇幻 冒险 / 本间修 / 山下大辉 Lynn"
+          "w": "2026 / 美国 / 喜剧 动画 恐怖 / 艾丽卡·海耶斯 / 威尔·福特 伊丽莎·库伯"
+        },
+        {
+          "id": "db_37352866",
+          "t": "黑色五叶草 第二季",
+          "y": 2026,
+          "d": "2026",
+          "r": 9.1,
+          "a": "#ffd27a",
+          "b": "#29200b",
+          "ty": "剧集",
+          "kind": "动画",
+          "poster": "/api/img?url=https%3A%2F%2Fimg9.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2936199034.jpg",
+          "backdrop": "",
+          "w": "2026 / 日本 / 动画 奇幻 冒险 / 种村绫隆 / 梶原岳人 岛崎信长"
         },
         {
           "id": "db_37247391",
@@ -896,6 +882,20 @@
           "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2930134572.jpg",
           "backdrop": "",
           "w": "2026 / 日本 / 剧情 喜剧 科幻 动画 / 长井龙雪 / 小清水亚美 洲崎绫"
+        },
+        {
+          "id": "db_38239691",
+          "t": "被流放的开挂魔术师讴歌随心所欲第二人生",
+          "y": 2026,
+          "d": "2026",
+          "r": 7.1,
+          "a": "#7ae582",
+          "b": "#0d2412",
+          "ty": "剧集",
+          "kind": "动画",
+          "poster": "/api/img?url=https%3A%2F%2Fimg3.doubanio.com%2Fview%2Fphoto%2Fs_ratio_poster%2Fpublic%2Fp2935646070.jpg",
+          "backdrop": "",
+          "w": "2026 / 日本 / 动画 奇幻 冒险 / 本间修 / 山下大辉 Lynn"
         }
       ]
     },
@@ -1058,16 +1058,16 @@
     },
     {
       "id": "ed_mood_2",
-      "badge": "🌙 周四放映指南",
-      "title": "周四晚上的电子布洛芬：3 部看完心情变轻的片",
+      "badge": "🌙 周五放映指南",
+      "title": "周五晚上的电子布洛芬：3 部看完心情变轻的片",
       "sub": "零压力下饭与情绪充电",
-      "query": "适合周四晚上放松解压、节奏轻快、画面治愈的高分电影或剧集",
+      "query": "适合周五晚上放松解压、节奏轻快、画面治愈的高分电影或剧集",
       "accent": "#5ea8ff"
     },
     {
       "id": "ed_gem_3",
       "badge": "🎞️ 策展人私藏",
-      "title": "除了《珠穆朗玛：云中彼岸》，这 3 部冷门高分片后劲极大",
+      "title": "除了《泥面人》，这 3 部冷门高分片后劲极大",
       "sub": "评分 8.2+ 却少有人推",
       "query": "豆瓣8.2分以上冷门小众、摄影高级、看完后劲极大的私藏佳片",
       "accent": "#b28cff"
@@ -1085,9 +1085,9 @@
     },
     {
       "emoji": "🎬",
-      "label": "周四片单",
+      "label": "周五片单",
       "sub": "今日专属氛围",
-      "query": "适合周四看的氛围感强、口碑在线的电影",
+      "query": "适合周五看的氛围感强、口碑在线的电影",
       "bg": "linear-gradient(135deg,#1d2d44,#0b1320)",
       "hot": true,
       "slot": "any"
@@ -1095,8 +1095,8 @@
   ],
   "placeholders": [
     "像《饥饿游戏：收获日出》一样停不下来的反转悬疑",
-    "周四晚上的电子布洛芬轻喜剧",
+    "周五晚上的电子布洛芬轻喜剧",
     "近期豆瓣口碑爆棚、后劲极大的佳片",
-    "除了《珠穆朗玛：云中彼岸》，再来部冷门高分片"
+    "除了《泥面人》，再来部冷门高分片"
   ]
 }
